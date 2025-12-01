@@ -74,7 +74,17 @@ export function Lyrics(props) {
 
 	const [globalOffset, setGlobalOffset, _globalOffset] = useRefState(parseInt(getSetting('lyric-offset', 0)));
 
-	const heightOfItems = useRef([]);
+	const heightOfItems = useRef({});
+
+	const reportHeight = useCallback((index, height) => {
+		if (heightOfItems.current[index] !== height) {
+			heightOfItems.current[index] = height;
+			// Only trigger update if height actually changed significantly or if it was 0/undefined
+			// to avoid loops. But here we rely on ResizeObserver which should be stable.
+			// We need to trigger a transform recalc.
+			setRecalcCounter(+new Date());
+		}
+	}, []);
 
 	const [containerHeight, setContainerHeight] = useState(0);
 	const [containerWidth, setContainerWidth] = useState(0);
@@ -198,27 +208,11 @@ export function Lyrics(props) {
 
 
 	useEffect(() => { // Recalculate height of each line
-		if (!lyrics) return;
-		const container = containerRef.current;
-		const items = container.children;
-		const heights = [];
-		for (const item of items) {
-			heights.push(item.clientHeight);
-		}
-		heightOfItems.current = heights;
-		//console.log('heightOfItems', heightOfItems.current);
-	}, [lyrics, containerWidth, fontSize, showTranslation, showRomaji, useKaraokeLyrics, karaokeAnimation, recalcCounter]);
+		// Heights are now reported by individual Line components
+	}, [lyrics]);
 
 	const recalcHeightOfItems = () => {
-		if (!lyrics) return;
-		const container = containerRef.current;
-		const items = container.children;
-		const heights = [];
-		for (const item of items) {
-			heights.push(item.clientHeight);
-		}
-		heightOfItems.current = heights;
-		//console.log('heightOfItems', heightOfItems.current);
+		// Deprecated: Heights are reported by Line components
 	}
 	
 	const onResize = () => {
@@ -326,6 +320,10 @@ export function Lyrics(props) {
 
 		//console.log(currentLine, previousFocusedLineRef.current, currentLine - previousFocusedLineRef.current > 0 ? 1 : -1);
 
+		const getHeight = (index) => {
+			return heightOfItems.current[index] ?? (fontSize * 1.5 + 10);
+		};
+
 		const transforms = [];
 		for (let i = 0; i <= lyrics.length; i++) transforms.push({ top: 0, scale: 1, delay: 0 });
 		//console.log('containerHeight', containerHeight);
@@ -337,14 +335,14 @@ export function Lyrics(props) {
 
 		if (!scrollingMode) recalcHeightOfItems();
 		//console.log(currentLine, current);
-		//transforms[current].top = containerHeight / 2 - heightOfItems.current[current] / 2;
+		//transforms[current].top = containerHeight / 2 - getHeight(current) / 2;
 		transforms[current].top = 
 			containerRef.current.clientHeight * (currentLyricAlignmentPercentage * 0.01) - 
-			heightOfItems.current[current] / 2;
+			getHeight(current) / 2;
 		transforms[current].scale = 1;
 		transforms[current].delay = delayByOffset(0);
 		transforms[current].blur = blurByOffset(0);
-		const currentLineHeight = heightOfItems.current[current];
+		const currentLineHeight = getHeight(current);
 		if (lyrics[current]?.isInterlude && !scrollingMode) {
 			// temporary heighten the interlude line
 			heightOfItems.current[current] = currentLineHeight + 50;
@@ -354,36 +352,36 @@ export function Lyrics(props) {
 			transforms[i].scale = scaleByOffset(current - i);
 			transforms[i].blur = blurByOffset(i - current);
 			transforms[i].opacity = opacityByOffset(i - current);
-			let scaledHeight = heightOfItems.current[i] * transforms[i].scale;
+			let scaledHeight = getHeight(i) * transforms[i].scale;
 			transforms[i].top = transforms[i + 1].top - scaledHeight - space;
 			transforms[i].delay = delayByOffset(i - current);
-			setRotateTransform(transforms[i], transforms[current].top - transforms[i].top, heightOfItems.current[i] * transforms[i].scale);
+			setRotateTransform(transforms[i], transforms[current].top - transforms[i].top, getHeight(i) * transforms[i].scale);
 		}
 		// all lines after current
 		for (let i = current + 1; i < lyrics.length; i++) {
 			transforms[i].scale = scaleByOffset(i - current);
 			transforms[i].blur = blurByOffset(i - current);
 			transforms[i].opacity = opacityByOffset(i - current);
-			const previousScaledHeight = heightOfItems.current[i - 1] * transforms[i - 1].scale;
+			const previousScaledHeight = getHeight(i - 1) * transforms[i - 1].scale;
 			transforms[i].top = transforms[i - 1].top + previousScaledHeight + space;
 			transforms[i].delay = delayByOffset(i - current);
-			setRotateTransform(transforms[i], transforms[current].top - transforms[i].top, heightOfItems.current[i] * transforms[i].scale);
+			setRotateTransform(transforms[i], transforms[current].top - transforms[i].top, getHeight(i) * transforms[i].scale);
 		}
 		// contributors line
 		transforms[lyrics.length].scale = scaleByOffset(lyrics.length - 1 - current);
 		transforms[lyrics.length].blur = blurByOffset(lyrics.length - 1 - current);
 		transforms[lyrics.length].opacity = opacityByOffset(lyrics.length - 1 - current);
 		if (lyrics.length > 0) {
-			const previousScaledHeight = heightOfItems.current[lyrics.length - 1] * transforms[lyrics.length - 1].scale;
+			const previousScaledHeight = getHeight(lyrics.length - 1) * transforms[lyrics.length - 1].scale;
 			transforms[lyrics.length].top = transforms[lyrics.length - 1].top + previousScaledHeight + Math.min(space * 1.5, 90);
 		} else {
-			transforms[lyrics.length].top = containerHeight / 2 - heightOfItems.current[lyrics.length] / 2;
+			transforms[lyrics.length].top = containerHeight / 2 - getHeight(lyrics.length) / 2;
 			transforms[lyrics.length].blur = blurByOffset(0);
 			transforms[lyrics.length].scale = scaleByOffset(0);
 			transforms[lyrics.length].opacity = opacityByOffset(0);
 		}
 		transforms[lyrics.length].delay = delayByOffset(lyrics.length - current);
-		setRotateTransform(transforms[lyrics.length], transforms[current].top - transforms[lyrics.length].top, heightOfItems.current[lyrics.length] * transforms[lyrics.length].scale);
+		setRotateTransform(transforms[lyrics.length], transforms[current].top - transforms[lyrics.length].top, getHeight(lyrics.length) * transforms[lyrics.length].scale);
 		// set the height of interlude line back to normal
 		heightOfItems.current[current] = currentLineHeight;
 		// reset delay to 0 if necessary
@@ -749,6 +747,7 @@ export function Lyrics(props) {
 						outOfRangeScrolling={scrollingMode && length > 100 && Math.abs(index - scrollingFocusLine) > 20}
 						outOfRangeKaraoke={/*length > 100 && */Math.abs(index - currentLine) > 10}
 						lyricGlow={lyricGlow}
+						reportHeight={reportHeight}
 					/>
 				})}
 				<Contributors
@@ -875,7 +874,23 @@ export function Lyrics(props) {
 }
 
 function Line(props) {
+	const lineRef = useRef(null);
+	
+	useEffect(() => {
+		if (!lineRef.current) return;
+		const observer = new ResizeObserver(entries => {
+			for (let entry of entries) {
+				if (entry.contentRect.height > 0) {
+					props.reportHeight(props.id, entry.contentRect.height);
+				}
+			}
+		});
+		observer.observe(lineRef.current);
+		return () => observer.disconnect();
+	}, [props.reportHeight, props.id]);
+
 	if (props.outOfRangeScrolling) {
+		const offset = props.id - props.currentLine;
 		return (
 			<div
 				className={`rnp-lyrics-line ${props.line.isInterlude ? 'rnp-interlude' : ''}`}
@@ -884,6 +899,10 @@ function Line(props) {
 			/>
 		)
 	}
+	return <LineContent {...props} lineRef={lineRef} />;
+}
+
+function LineContent(props) {
 	if (props.line.originalLyric == '') {
 		props.line.isInterlude = true;
 	}
@@ -1046,6 +1065,7 @@ function Line(props) {
 
 	return (
 		<div
+			ref={props.lineRef}
 			className={`rnp-lyrics-line ${offset < 0 ? 'passed' : ''} ${props.line.isInterlude ? 'rnp-interlude' : ''}`}
 			offset={offset}
 			onClick={() => props.jumpToTime(props.line.time + 50)}
@@ -1104,7 +1124,8 @@ function Line(props) {
 				transitionDuration: `${props.transforms?.duration ?? 500}ms`,
 				filter: props.transforms?.blur ? `blur(${props.transforms?.blur}px)` : 'none',
 				opacity: props.transforms?.opacity ?? 1,
-				...props.transforms?.outOfRangeHidden && {visibility: 'hidden'}
+				...props.transforms?.outOfRangeHidden && {visibility: 'hidden'},
+				willChange: 'transform, opacity, filter'
 			}}>
 			{ props.line.dynamicLyric && props.useKaraokeLyrics && !props.outOfRangeKaraoke && <div className="rnp-lyrics-line-karaoke" ref={karaokeLineRef}>
 				{props.line.dynamicLyric.map((word, index) => {
