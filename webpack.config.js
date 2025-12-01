@@ -90,6 +90,10 @@ const config = {
       terserOptions: {
         format: {
           comments: false,
+          beautify: false,
+        },
+        compress: {
+          drop_console: true,
         },
       },
       extractComments: false,
