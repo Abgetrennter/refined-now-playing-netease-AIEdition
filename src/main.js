@@ -905,7 +905,8 @@ plugin.onLoad(async (p) => {
 
 
 			waitForElement('.g-single-track .g-singlec-ct .n-single .mn .lyric', (oldLyrics) => {
-				oldLyrics.remove();
+				oldLyrics.style.display = 'none';
+				oldLyrics.classList.add('rnp-hidden-original-lyric');
 			});
 			const lyrics = document.createElement('div');
 			lyrics.classList.add('lyric');
