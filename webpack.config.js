@@ -85,6 +85,14 @@ const config = {
       topLevelAwait: true
   },
 
+  devtool: 'source-map',
+
+  performance: {
+    hints: false,
+    maxEntrypointSize: 512000,
+    maxAssetSize: 512000
+  },
+
   optimization: {
     minimizer: [new TerserPlugin({
       terserOptions: {
@@ -93,7 +101,7 @@ const config = {
           beautify: false,
         },
         compress: {
-          drop_console: true,
+          drop_console: false,
         },
       },
       extractComments: false,

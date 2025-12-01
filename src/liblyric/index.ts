@@ -1,4 +1,4 @@
-import { findLast } from "lodash";
+import findLast from "lodash/findLast";
 
 export interface DynamicLyricWord {
 	time: number;

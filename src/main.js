@@ -20,6 +20,17 @@ import { FontSettings } from './font-settings.js';
 import './material-you-compatibility.scss';
 import { createRoot } from 'react-dom/client';
 
+console.log('Refined Now Playing: Initializing...');
+
+// Global Error Handler
+window.addEventListener('error', (event) => {
+    console.error('Refined Now Playing: Uncaught Error:', event.error || event.message);
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+    console.error('Refined Now Playing: Unhandled Promise Rejection:', event.reason);
+});
+
 const updateAccentColor = (name, argb, isFM = false) => {
 	const [r, g, b] = [...argb2Rgb(argb)];
 	if (isFM) {
@@ -775,77 +786,105 @@ plugin.onLoad(async (p) => {
 		if (document.querySelector('.g-single:not(.patched)')) {
 			document.querySelector('.g-single').classList.add('patched');
 			waitForElement('.n-single .cdimg img', (dom) => {
-				dom.addEventListener('load', updateCDImage);
-				new MutationObserver(updateCDImage).observe(dom, {attributes: true, attributeFilter: ['src']});
+				if (!dom) {
+					console.error('Refined Now Playing: .n-single .cdimg img not found in callback');
+					return;
+				}
+				try {
+					dom.addEventListener('load', updateCDImage);
+					new MutationObserver(updateCDImage).observe(dom, {attributes: true, attributeFilter: ['src']});
 
-				dom.addEventListener('contextmenu', (e) => {
-					e.preventDefault();
-					e.stopPropagation();
-					const imageURL = dom.src.replace(/^orpheus:\/\/cache\/\?/, '').replace(/\?.*$/, '');
-					showContextMenu(e.clientX, e.clientY, [
-						{
-							label: '复制图片地址',
-							callback: () => {
-								copyTextToClipboard(imageURL);
-							}
-						},
-						{
-							label: '在浏览器中打开图片',
-							callback: () => {
-								betterncm.app.exec(`${imageURL}`);
-							}
+					dom.addEventListener('contextmenu', (e) => {
+						try {
+							e.preventDefault();
+							e.stopPropagation();
+							const imageURL = dom.src.replace(/^orpheus:\/\/cache\/\?/, '').replace(/\?.*$/, '');
+							showContextMenu(e.clientX, e.clientY, [
+								{
+									label: '复制图片地址',
+									callback: () => {
+										copyTextToClipboard(imageURL);
+									}
+								},
+								{
+									label: '在浏览器中打开图片',
+									callback: () => {
+										betterncm.app.exec(`${imageURL}`);
+									}
+								}
+							]);					
+						} catch (error) {
+							console.error('Refined Now Playing: Error in contextmenu handler for cdimg', error);
 						}
-					]);					
-				});
+					});
+				} catch (error) {
+					console.error('Refined Now Playing: Error attaching listeners to cdimg', error);
+				}
 			});
 
 			waitForElement('.g-single .g-singlec-ct .n-single .mn .head .inf', (dom) => {
+				if (!dom) {
+					console.error('Refined Now Playing: .g-single .g-singlec-ct .n-single .mn .head .inf not found in callback');
+					return;
+				}
 				const addCopySelectionToItems = (items, closetSelector) => {
-					const selection = window.getSelection();
-					if (selection.toString().trim() && selection.baseNode.parentElement.closest(closetSelector)) {
-						const selectedText = selection.toString().trim();												
-						items.unshift({
-							label: '复制',
-							callback: () => {
-								copyTextToClipboard(selectedText);
-							}
-						});
+					try {
+						const selection = window.getSelection();
+						if (selection.toString().trim() && selection.baseNode.parentElement.closest(closetSelector)) {
+							const selectedText = selection.toString().trim();												
+							items.unshift({
+								label: '复制',
+								callback: () => {
+									copyTextToClipboard(selectedText);
+								}
+							});
+						}
+					} catch (error) {
+						console.error('Refined Now Playing: Error in addCopySelectionToItems', error);
 					}
 				};
-				dom.addEventListener('contextmenu', (e) => {
-					e.preventDefault();
-					e.stopPropagation();
+				try {
+					dom.addEventListener('contextmenu', (e) => {
+						try {
+							e.preventDefault();
+							e.stopPropagation();
 
-					if (e.target.closest('.title .name')) {
-						const songName = dom.querySelector('.title .name').innerText;
-						const items = [
-							{
-								label: '复制歌曲名',
-								callback: () => {
-									copyTextToClipboard(songName);
-								}
+							if (e.target.closest('.title .name')) {
+								const songName = dom.querySelector('.title .name').innerText;
+								const items = [
+									{
+										label: '复制歌曲名',
+										callback: () => {
+											copyTextToClipboard(songName);
+										}
+									}
+								];
+								addCopySelectionToItems(items, '.title .name');
+								showContextMenu(e.clientX, e.clientY, items);
+								return;
 							}
-						];
-						addCopySelectionToItems(items, '.title .name');
-						showContextMenu(e.clientX, e.clientY, items);
-						return;
-					}
 
-					if (e.target.closest('.info .alias')) {
-						const songAlias = dom.querySelector('.info .alias').innerText;
-						const items = [
-							{
-								label: '复制歌曲别名',
-								callback: () => {
-									copyTextToClipboard(songAlias);
-								}
+							if (e.target.closest('.info .alias')) {
+								const songAlias = dom.querySelector('.info .alias').innerText;
+								const items = [
+									{
+										label: '复制歌曲别名',
+										callback: () => {
+											copyTextToClipboard(songAlias);
+										}
+									}
+								];
+								addCopySelectionToItems(items, '.info .alias');
+								showContextMenu(e.clientX, e.clientY, items);
+								return;
 							}
-						];
-						addCopySelectionToItems(items, '.info .alias');
-						showContextMenu(e.clientX, e.clientY, items);
-						return;
-					}
-				});
+						} catch (error) {
+							console.error('Refined Now Playing: Error in contextmenu handler for song info', error);
+						}
+					});
+				} catch (error) {
+					console.error('Refined Now Playing: Error attaching listeners to song info', error);
+				}
 			});
 
 
