@@ -1,23 +1,23 @@
-import './styles.scss';
-import './exclusive-modes.scss';
-import './FM.scss'
-import './experimental.scss';
-import settingsMenuHTML from './settings-menu.html';
-import './settings-menu.scss';
-import { argb2Rgb, rgb2Argb } from './color-utils.js';
-import { waitForElement, waitForElementAsync, getSetting, setSetting, chunk, copyTextToClipboard } from './utils.js';
-import './refined-control-bar.js';
-import { Background } from './background.js';
-import { CoverShadow } from './cover-shadow.js';
-import { Lyrics } from './lyrics.js';
+import './styles/styles.scss';
+import './styles/exclusive-modes.scss';
+import './styles/FM.scss'
+import './styles/experimental.scss';
+import settingsMenuHTML from './components/settings/settings-menu.html';
+import './components/settings/settings-menu.scss';
+import { argb2Rgb, rgb2Argb } from './utils/color-utils.js';
+import { waitForElement, waitForElementAsync, getSetting, setSetting, chunk, copyTextToClipboard } from './utils/utils.js';
+import './components/control-bar/refined-control-bar.js';
+import { Background } from './components/background/background.js';
+import { CoverShadow } from './components/cover-shadow/cover-shadow.js';
+import { Lyrics } from './components/lyrics/lyrics.js';
 import { themeFromSourceColor, QuantizerCelebi, Hct, Score } from "@material/material-color-utilities";
-import { compatibilityWizard, hijackFailureNoticeCheck } from './compatibility-check.js';
-import { whatsNew } from './whats-new.js';
-import { showContextMenu } from './context-menu.js';
-import { MiniSongInfo } from './mini-song-info.js';
-import { ProgressbarPreview } from './progressbar-preview.js';
-import { FontSettings } from './font-settings.js';
-import './material-you-compatibility.scss';
+import { compatibilityWizard, hijackFailureNoticeCheck } from './components/compatibility/compatibility-check.js';
+import { whatsNew } from './components/whats-new/whats-new.js';
+import { showContextMenu } from './components/context-menu/context-menu.js';
+import { MiniSongInfo } from './components/mini-song-info/mini-song-info.js';
+import { ProgressbarPreview } from './components/progressbar-preview/progressbar-preview.js';
+import { FontSettings } from './components/font-settings/font-settings.js';
+import './components/compatibility/material-you-compatibility.scss';
 import { createRoot } from 'react-dom/client';
 
 console.log('Refined Now Playing: Initializing...');

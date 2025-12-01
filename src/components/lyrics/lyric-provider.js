@@ -1,8 +1,8 @@
 // Trigger lyrics-updated event when lyrics are updated
 // Also provide a global variable `currentLyrics` for other scripts to use
 
-import { parseLyric } from './liblyric/index.ts'
-import { cyrb53 } from './utils.js'
+import { parseLyric } from '../../liblyric/index.ts'
+import { cyrb53 } from '../../utils/utils.js'
 
 const preProcessLyrics = (lyrics) => {
 	if (!lyrics) return null;

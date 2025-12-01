@@ -1,6 +1,6 @@
 import './lyric-provider.js';
-import { getSetting, setSetting, copyTextToClipboard } from './utils.js';
-import { showContextMenu } from './context-menu';
+import { getSetting, setSetting, copyTextToClipboard } from '../../utils/utils.js';
+import { showContextMenu } from '../context-menu/context-menu.js';
 import './lyrics.scss';
 
 import _isEqual from 'lodash/isEqual';
