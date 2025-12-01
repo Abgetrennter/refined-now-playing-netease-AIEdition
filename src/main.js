@@ -10,7 +10,7 @@ import './refined-control-bar.js';
 import { Background } from './background.js';
 import { CoverShadow } from './cover-shadow.js';
 import { Lyrics } from './lyrics.js';
-import { themeFromSourceColor, QuantizerCelebi, Hct, Score } from "@importantimport/material-color-utilities";
+import { themeFromSourceColor, QuantizerCelebi, Hct, Score } from "@material/material-color-utilities";
 import { compatibilityWizard, hijackFailureNoticeCheck } from './compatibility-check.js';
 import { whatsNew } from './whats-new.js';
 import { showContextMenu } from './context-menu.js';
