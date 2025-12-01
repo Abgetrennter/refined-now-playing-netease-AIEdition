@@ -41,6 +41,54 @@ const config = {
 
     // Add your plugins here
     // Learn more about plugins from https://webpack.js.org/configuration/plugins/
+    {
+      apply: (compiler) => {
+        compiler.hooks.afterEmit.tap('CopyBuildToBetterNCM', (compilation) => {
+          const fs = require('fs');
+          const path = require('path');
+          const targetPath = "C:\\betterncm\\plugins_dev\\refine";
+          const outputPath = compilation.outputOptions.path;
+          
+          console.log(`[CopyBuildToBetterNCM] Starting copy from ${outputPath} to ${targetPath}`);
+
+          if (!fs.existsSync(targetPath)) {
+             console.log(`[CopyBuildToBetterNCM] Creating directory ${targetPath}`);
+             try {
+               fs.mkdirSync(targetPath, { recursive: true });
+             } catch (err) {
+               console.error(`[CopyBuildToBetterNCM] Failed to create directory: ${err.message}`);
+               return;
+             }
+          }
+
+          for (const assetName in compilation.assets) {
+            const srcPath = path.join(outputPath, assetName);
+            const destPath = path.join(targetPath, assetName);
+            const destDir = path.dirname(destPath);
+            
+            if (!fs.existsSync(destDir)) {
+                fs.mkdirSync(destDir, { recursive: true });
+            }
+
+            try {
+              if (fs.existsSync(srcPath)) {
+                fs.copyFileSync(srcPath, destPath);
+                console.log(`[CopyBuildToBetterNCM] Copied ${assetName}`);
+              } else {
+                 // Fallback for memory assets
+                 const asset = compilation.assets[assetName];
+                 const content = asset.source();
+                 fs.writeFileSync(destPath, content);
+                 console.log(`[CopyBuildToBetterNCM] Copied ${assetName} from memory`);
+              }
+            } catch (e) {
+              console.error(`[CopyBuildToBetterNCM] Error copying ${assetName}:`, e);
+            }
+          }
+          console.log(`[CopyBuildToBetterNCM] Copy complete.`);
+        });
+      }
+    },
   ],
   resolve: {
     extensions: ['.tsx', '.ts', '.js'],

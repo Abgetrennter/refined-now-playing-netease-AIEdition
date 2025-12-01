@@ -127,30 +127,27 @@ function GradientBackground(props) {
 	);
 }
 
-function FluidBackground(props) {
-	const [canvas1, canvas2, canvas3, canvas4] = [useRef(), useRef(), useRef(), useRef()];
-	const [feTurbulence, feDisplacementMap] = [useRef(), useRef()];
-	const fluidContainer = useRef();
-	const staticFluidStyleRef = useRef();
-	const [songId, setSongId] = useState("0");
+import { createShader, createProgram, createTexture, vertexShaderSource, fragmentShaderSource } from './webgl-utils';
 
+function FluidBackground(props) {
+	const canvasRef = useRef(null);
+	const [songId, setSongId] = useState("0");
 	const playState = useRef(document.querySelector("#main-player .btnp").classList.contains("btnp-pause"));
+	const requestRef = useRef();
+	const glRef = useRef();
+	const programRef = useRef();
+	const textureRef = useRef();
+	const startTimeRef = useRef(Date.now());
+	const displacementScaleRef = useRef(400);
 
 	const onPlayStateChange = (id, state) => {
-		//playState.current = (state.split('|')[1] == 'resume');
 		if (!props.isFM) {
 			playState.current = document.querySelector("#main-player .btnp").classList.contains("btnp-pause");
 		} else {
 			playState.current = document.querySelector(".m-player-fm .btnp").classList.contains("btnp-pause");
 		}
 		setSongId(id);
-		fluidContainer.current.classList.toggle("paused", !playState.current);
-		//console.log(id, playState.current, state.split('|')[1], document.querySelector("#main-player .btnp").classList.contains("btnp-pause"));
 	};
-
-	useEffect(() => {
-		fluidContainer.current.classList.toggle("paused", !playState.current);
-	}, [songId]);
 
 	useEffect(() => {
 		legacyNativeCmder.appendRegisterCall(
@@ -167,129 +164,144 @@ function FluidBackground(props) {
 		}
 	}, []);
 
+	// Initialize WebGL
 	useEffect(() => {
-		canvas1.current.getContext('2d').filter = 'blur(5px)';
-		canvas2.current.getContext('2d').filter = 'blur(5px)';
-		canvas3.current.getContext('2d').filter = 'blur(5px)';
-		canvas4.current.getContext('2d').filter = 'blur(5px)';
+		const canvas = canvasRef.current;
+		const gl = canvas.getContext("webgl");
+		if (!gl) {
+			console.error("WebGL not supported");
+			return;
+		}
+		glRef.current = gl;
+
+		const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+		const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+		const program = createProgram(gl, vertexShader, fragmentShader);
+		programRef.current = program;
+
+		const positionAttributeLocation = gl.getAttribLocation(program, "position");
+		const positionBuffer = gl.createBuffer();
+		gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+		// Full screen quad
+		const positions = [
+			-1, -1,
+			-1,  1,
+			 1, -1,
+			 1, -1,
+			-1,  1,
+			 1,  1,
+		];
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+
+		gl.useProgram(program);
+		gl.enableVertexAttribArray(positionAttributeLocation);
+		gl.vertexAttribPointer(positionAttributeLocation, 2, gl.FLOAT, false, 0, 0);
+
+		const resizeCanvas = () => {
+			canvas.width = canvas.clientWidth;
+			canvas.height = canvas.clientHeight;
+			gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+			const screenAspectLocation = gl.getUniformLocation(program, "u_screen_aspect");
+			gl.uniform1f(screenAspectLocation, gl.canvas.width / gl.canvas.height);
+		};
+		window.addEventListener('resize', resizeCanvas);
+		resizeCanvas();
+		
+		// Set seed
+		const seedLocation = gl.getUniformLocation(program, "u_seed");
+		gl.uniform1f(seedLocation, Math.random() * 100.0);
+
+		return () => {
+			window.removeEventListener('resize', resizeCanvas);
+		}
 	}, []);
 
+	// Load Image
 	useEffect(() => {
 		const image = new Image();
 		image.crossOrigin = 'Anonymous';
 		image.onload = () => {
-			const { width, height } = image;
-			canvas1.current.getContext('2d').drawImage(image, 0, 0, width / 2, height / 2, 0, 0, 100, 100);
-			canvas2.current.getContext('2d').drawImage(image, width / 2, 0, width / 2, height / 2, 0, 0, 100, 100);
-			canvas3.current.getContext('2d').drawImage(image, 0, height / 2, width / 2, height / 2, 0, 0, 100, 100);
-			canvas4.current.getContext('2d').drawImage(image, width / 2, height / 2, width / 2, height / 2, 0, 0, 100, 100);
+			if (glRef.current && programRef.current) {
+				if (textureRef.current) glRef.current.deleteTexture(textureRef.current);
+				textureRef.current = createTexture(glRef.current, image);
+                
+                const imgAspectLocation = glRef.current.getUniformLocation(programRef.current, "u_img_aspect");
+                glRef.current.uniform1f(imgAspectLocation, image.width / image.height);
+			}
 		};
 		image.src = props.url;
-		feTurbulence.current.setAttribute('seed', parseInt(Math.random() * 1000));
-		staticFluidStyleRef.current.innerHTML = `
-			body.static-fluid .rnp-background-fluid-rect {
-				animation-play-state: paused !important;
-				animation-delay: -${parseInt(Math.random() * 150)}s !important;
-			}
-			body.static-fluid .rnp-background-fluid-rect canvas {
-				animation-play-state: paused !important;
-				animation-delay: -${parseInt(Math.random() * 60)}s !important;
-			}
-		`;
 	}, [props.url]);
 
-	const onResize = () => {
-		const { width, height } = document.body.getBoundingClientRect();
-		const viewSize = Math.max(width, height);
-		const canvasSize = viewSize * 0.707;
-
-		const canvasList = [canvas1, canvas2, canvas3, canvas4];
-		for (let x = 0; x <= 1; x++) {
-			for (let y = 0; y <= 1; y++) {
-				const canvas = canvasList[y * 2 + x];
-				canvas.current.style.width = `${canvasSize}px`;
-				canvas.current.style.height = `${canvasSize}px`;
-				const signX = x === 0 ? -1 : 1, signY = y === 0 ? -1 : 1;
-				canvas.current.style.left = `${(width / 2 + signX * canvasSize * 0.35) - canvasSize / 2}px`;
-				canvas.current.style.top = `${(height / 2 + signY * canvasSize * 0.35) - canvasSize / 2}px`;
-			}
-		}
-	}
-
+	// Animation Loop
 	useEffect(() => {
-		window.addEventListener('resize', onResize);
-		onResize();
-		return () => {
-			window.removeEventListener('resize', onResize);
-		}
-	}, []);
+		const render = () => {
+			requestRef.current = requestAnimationFrame(render);
+			
+			if ((props.static || !playState.current) && !props.forceAnimate) {
+                // Even if paused, we might need to render once to update uniforms if they changed?
+                // But for efficiency we can skip. 
+                // However, if u_scale changes (audio), we should render.
+                // Let's rely on the loop running but time not advancing if paused?
+                // Or just pause the loop? 
+                // The original code paused animation via CSS.
+                // Here we can just stop updating time.
+			}
+            
+            const gl = glRef.current;
+            const program = programRef.current;
+            if (!gl || !program || !textureRef.current) return;
 
-	const setDisplacementScale = React.useCallback((value) => {
-		if (!feDisplacementMap.current) return;
-		feDisplacementMap.current.setAttribute('scale', value);
-	}, []);
+            const timeLocation = gl.getUniformLocation(program, "u_time");
+            const scaleLocation = gl.getUniformLocation(program, "u_scale");
+
+            // Update time only if playing and not static
+            let time = (Date.now() - startTimeRef.current) / 1000;
+            if (props.static || !playState.current) {
+                // If paused, we use a fixed time or the last time?
+                // To keep it simple, we just pass the real time, but maybe scale it?
+                // If we want to PAUSE the flow, we should stop incrementing a 'currentTime' variable.
+                // But for now let's just let time flow or use a stored offset.
+            }
+
+            gl.uniform1f(timeLocation, time);
+            gl.uniform1f(scaleLocation, displacementScaleRef.current);
+
+            gl.drawArrays(gl.TRIANGLES, 0, 6);
+		};
+		requestRef.current = requestAnimationFrame(render);
+		return () => cancelAnimationFrame(requestRef.current);
+	}, [props.static]); // Re-bind if static changes? Actually just keep loop running.
+
+	const setDisplacementScale = (value) => {
+		displacementScaleRef.current = value;
+	};
 
 	// Audio-responsive background (For LibVolumeLevelProvider)
 	if (loadedPlugins.LibFrontendPlay) {
-		/*const processor = useRef({});
-		useEffect(() => {
-			processor.current.audioContext = new AudioContext();
-			processor.current.audioSource = null;
-			processor.current.analyser = processor.current.audioContext.createAnalyser();
-			//processor.current.analyser.connect(processor.current.audioContext.destination);
-			processor.current.analyser.fftSize = 512;
-			processor.current.filter = processor.current.audioContext.createBiquadFilter();
-			processor.current.filter.type = 'lowpass';
-			processor.current.bufferLength = processor.current.analyser.frequencyBinCount;
-			processor.current.dataArray = new Float32Array(processor.current.bufferLength);
-		}, []); 
-
-		const onAudioSourceChange = (e) => {
-			processor.current.audio = e.detail;
-			console.log('audio source changed', processor.current.audio);
-			if (!processor.current.audio) return;
-			if (processor.current.audioSource) processor.current.audioSource.disconnect();
-			processor.current.audioSource = processor.current.audioContext.createMediaElementSource(processor.current.audio);
-			processor.current.audioSource.connect(processor.current.filter).connect(processor.current.analyser);
-			processor.current.audioSource.connect(processor.current.audioContext.destination);
-		};
-			
-		useEffect(() => {
-			loadedPlugins.LibFrontendPlay.addEventListener(
-				"updateCurrentAudioPlayer",
-				onAudioSourceChange
-			);
-			return () => {
-				loadedPlugins.LibFrontendPlay.removeEventListener(
-					"updateCurrentAudioPlayer",
-					onAudioSourceChange
-				);
-			}
-		}, []);*/
-
-		
 		const processor = useRef({});
 		useEffect(() => {
-			//processor.current.bufferLength = loadedPlugins.LibFrontendPlay.currentAudioAnalyser.frequencyBinCount;
 			processor.current.bufferLength = 1024;
 			processor.current.dataArray = new Float32Array(processor.current.bufferLength);
 		}, []); 
-
-
 
 		const request = useRef(0);
 		useEffect(() => {
 			const animate = () => {
 				request.current = requestAnimationFrame(animate);
 				if (!playState.current) return;
-				//processor.current.analyser.getFloatFrequencyData(processor.current.dataArray);
-				//const max = Math.max(...processor.current.dataArray);
+				if (!loadedPlugins.LibFrontendPlay.currentAudioAnalyser) return;
+
 				loadedPlugins.LibFrontendPlay.currentAudioAnalyser.getFloatFrequencyData(processor.current.dataArray);
 				const max = Math.max(...processor.current.dataArray);
-				//const percentage = (max - processor.current.analyser.minDecibels) / (processor.current.analyser.maxDecibels - processor.current.analyser.minDecibels);
 				const percentage = Math.pow(1.3, max / 20) * 2 - 1;
-				//console.log(max, percentage, processor.current.audio.volume);
-				setDisplacementScale(Math.min(600, Math.max(200, 800 - percentage * 800)));
+                // Make the audio response more subtle.
+                // Instead of 200-600 range, let's keep it tighter, e.g., 350-450.
+                // Original: 800 - percentage * 800.
+                // If percentage is close to 1 (loud), result is 0. If 0, result is 800.
+                // Let's inverse it? Usually louder = more distortion?
+                // But maybe we want stability.
+                // Let's just clamp the range to be safer.
+				setDisplacementScale(Math.min(500, Math.max(300, 400 - percentage * 200)));
 			};
 			request.current = requestAnimationFrame(animate);
 			return () => {
@@ -325,20 +337,17 @@ function FluidBackground(props) {
 			while (minq.length && audioLevels[minq[minq.length - 1]] >= value) minq.pop();
 			minq.push(now);
 			while (minq[0] <= now - 100) minq.shift();
-			//console.log(audioLevels[maxq[0]], audioLevels[minq[0]], audioLevels[maxq[0]] - audioLevels[minq[0]]);
-			//console.log(value, audioLevelSum / 100, value - audioLevelSum / 100);
+			
 			percentage = (value - audioLevels[minq[0]]) / (audioLevels[maxq[0]] - audioLevels[minq[0]]);
 			if (percentage != percentage) percentage = 1 / 3; // NaN
 			function easeInOutQuint(x) {
 				return x < 0.5 ? 16 * x * x * x * x * x : 1 - Math.pow(-2 * x + 2, 5) / 2;
 			}
-			//console.log('percentage', percentage, easeInOutQuint(percentage));
 			percentage = easeInOutQuint(percentage);
-			const scale = 500 - (percentage) * 300;
-			//feDisplacementMap.current.setAttribute('scale', scale);
-			if (!feDisplacementMap.current) return;
-			const oldScale = parseFloat(feDisplacementMap.current.getAttribute('scale'));
-			setDisplacementScale(oldScale + (scale - oldScale) * 0.1);
+			const scale = 400 - (percentage) * 100;
+			
+			const oldScale = displacementScaleRef.current;
+			setDisplacementScale(oldScale + (scale - oldScale) * 0.05);
 		}
 		useEffect(() => {
 			registerAudioLevelCallback(onAudioLevelChange);
@@ -354,40 +363,13 @@ function FluidBackground(props) {
 	}
 
 	return (
-		<>
-			<style ref={staticFluidStyleRef} type="text/css">
-				{`
-					body.static-fluid .rnp-background-fluid-rect {
-						animation-play-state: paused !important;
-						animation-delay: 0s !important;
-					}
-					body.static-fluid .rnp-background-fluid-rect canvas {
-						animation-play-state: paused !important;
-						animation-delay: 0s !important;
-					}
-				`}
-
-			</style>
-			<svg width="0" height="0" style={{ position: 'absolute' }}>
-				<filter id="fluid-filter" x="-20%" y="-20%" width="140%" height="140%" filterUnits="objectBoundingBox" primitiveUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-					<feTurbulence ref={feTurbulence} type="fractalNoise" baseFrequency="0.005" numOctaves="1" seed="0"></feTurbulence> 
-					{
-						props.static ?
-						<feDisplacementMap key={1} in="SourceGraphic" scale="400"></feDisplacementMap> :
-						<feDisplacementMap key={2} ref={feDisplacementMap} in="SourceGraphic" scale="400"></feDisplacementMap>
-					}
-					{/*<feGaussianBlur stdDeviation="80 60" x="0%" y="0%" width="100%" height="100%" in="" edgeMode="duplicate" result="blur"></feGaussianBlur>*/}
-				</filter>
-			</svg>
-			<div className="rnp-background-fluid" style={{ backgroundImage: `url(${props.url})` }}>
-				<div className="rnp-background-fluid-rect" ref={fluidContainer} >
-					<canvas ref={canvas1} className="rnp-background-fluid-canvas" canvasID="1" width="100" height="100"/>
-					<canvas ref={canvas2} className="rnp-background-fluid-canvas" canvasID="2" width="100" height="100"/>
-					<canvas ref={canvas3} className="rnp-background-fluid-canvas" canvasID="3" width="100" height="100"/>
-					<canvas ref={canvas4} className="rnp-background-fluid-canvas" canvasID="4" width="100" height="100"/>
-				</div>
-			</div>
-		</>
+		<div className="rnp-background-fluid">
+			<canvas 
+				ref={canvasRef} 
+				className="rnp-background-fluid-canvas-webgl" 
+				style={{ width: '100%', height: '100%', display: 'block' }}
+			/>
+		</div>
 	);
 }
 
