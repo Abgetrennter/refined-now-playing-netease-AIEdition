@@ -162,28 +162,50 @@ export function useTransforms(
 			transforms[i].scale = scaleByOffset(current - i);
 			transforms[i].blur = blurByOffset(i - current);
 			transforms[i].opacity = opacityByOffset(i - current);
-			let scaledHeight = getHeight(i) * transforms[i].scale;
-			transforms[i].top = transforms[i + 1].top - scaledHeight - space;
+			
+            const hCurrent = getHeight(i);
+            const hNext = getHeight(i + 1);
+            const sCurrent = transforms[i].scale;
+            const sNext = transforms[i + 1].scale;
+
+			// Correct formula for transform-origin: center (or left center)
+            // VisualBottomI = VisualTopNext - space
+            // topI + hI(1+sI)/2 = topNext + hNext(1-sNext)/2 - space
+            transforms[i].top = transforms[i + 1].top + hNext * (1 - sNext) / 2 - space - hCurrent * (1 + sCurrent) / 2;
+
 			transforms[i].delay = delayByOffset(i - current);
-			setRotateTransform(transforms[i], transforms[current].top - transforms[i].top, getHeight(i) * transforms[i].scale);
+			setRotateTransform(transforms[i], transforms[current].top - transforms[i].top, hCurrent * sCurrent);
 		}
 		// all lines after current
 		for (let i = current + 1; i < lyrics.length; i++) {
 			transforms[i].scale = scaleByOffset(i - current);
 			transforms[i].blur = blurByOffset(i - current);
 			transforms[i].opacity = opacityByOffset(i - current);
-			const previousScaledHeight = getHeight(i - 1) * transforms[i - 1].scale;
-			transforms[i].top = transforms[i - 1].top + previousScaledHeight + space;
+
+            const hCurrent = getHeight(i);
+            const hPrev = getHeight(i - 1);
+            const sCurrent = transforms[i].scale;
+            const sPrev = transforms[i - 1].scale;
+
+            // Correct formula for transform-origin: center (or left center)
+            // VisualTopI = VisualBottomPrev + space
+            // topI + hI(1-sI)/2 = topPrev + hPrev(1+sPrev)/2 + space
+			transforms[i].top = transforms[i - 1].top + hPrev * (1 + sPrev) / 2 + space - hCurrent * (1 - sCurrent) / 2;
+
 			transforms[i].delay = delayByOffset(i - current);
-			setRotateTransform(transforms[i], transforms[current].top - transforms[i].top, getHeight(i) * transforms[i].scale);
+			setRotateTransform(transforms[i], transforms[current].top - transforms[i].top, hCurrent * sCurrent);
 		}
 		// contributors line
 		transforms[lyrics.length].scale = scaleByOffset(lyrics.length - 1 - current);
 		transforms[lyrics.length].blur = blurByOffset(lyrics.length - 1 - current);
 		transforms[lyrics.length].opacity = opacityByOffset(lyrics.length - 1 - current);
 		if (lyrics.length > 0) {
-			const previousScaledHeight = getHeight(lyrics.length - 1) * transforms[lyrics.length - 1].scale;
-			transforms[lyrics.length].top = transforms[lyrics.length - 1].top + previousScaledHeight + Math.min(space * 1.5, 90);
+            const hCurrent = getHeight(lyrics.length);
+            const hPrev = getHeight(lyrics.length - 1);
+            const sCurrent = transforms[lyrics.length].scale;
+            const sPrev = transforms[lyrics.length - 1].scale;
+            
+			transforms[lyrics.length].top = transforms[lyrics.length - 1].top + hPrev * (1 + sPrev) / 2 + Math.min(space * 1.5, 90) - hCurrent * (1 - sCurrent) / 2;
 		} else {
 			transforms[lyrics.length].top = containerHeight / 2 - getHeight(lyrics.length) / 2;
 			transforms[lyrics.length].blur = blurByOffset(0);
@@ -212,7 +234,7 @@ export function useTransforms(
 		scrollingMode, scrollingFocusLine,
 		recalcCounter,
 		lyrics,
-        heightUpdateTick // Depend on height update tick
+		heightUpdateTick
 	]);
 
     return {
