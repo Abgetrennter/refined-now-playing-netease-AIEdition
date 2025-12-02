@@ -6,7 +6,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createShader, createProgram, createTexture, vertexShaderSource, fragmentShaderSource } from '../../utils/webgl-utils';
 
 declare const legacyNativeCmder: any;
-declare const loadedPlugins: any;
 declare const registerAudioLevelCallback: any;
 declare const unregisterAudioLevelCallback: any;
 
@@ -15,8 +14,8 @@ const colorThief = new ColorThief();
 interface BackgroundProps {
 	type?: string;
 	image: HTMLImageElement | HTMLElement;
-	isFM: boolean;
-	imageChangedCallback: (image: HTMLImageElement) => void;
+	isFM?: boolean;
+	imageChangedCallback?: (image: HTMLImageElement) => void;
 }
 
 export function Background(props: BackgroundProps) {
@@ -50,13 +49,13 @@ export function Background(props: BackgroundProps) {
 			const img = imageContainer.querySelector('.cvr.j-curr img') as HTMLImageElement;
 			if (img) {
 				setUrl(img.src);
-				props.imageChangedCallback(img);
+				props.imageChangedCallback?.(img);
 			}
 			const observer = new MutationObserver(() => {
 				const img = imageContainer.querySelector('.cvr.j-curr img') as HTMLImageElement;
 				if (img) {
 					setUrl(img.src);
-					props.imageChangedCallback(img);
+					props.imageChangedCallback?.(img);
 				}
 			});
 			observer.observe(imageContainer, { childList: true, subtree: true });

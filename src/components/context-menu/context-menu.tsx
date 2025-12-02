@@ -2,7 +2,7 @@ import React, { useEffect, useLayoutEffect, useCallback, useState, useRef } from
 import ReactDOM from 'react-dom';
 import './context-menu.scss';
 
-interface ContextMenuItem {
+export interface ContextMenuItem {
     html?: string;
     label?: string;
     callback?: () => void;

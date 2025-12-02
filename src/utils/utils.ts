@@ -46,12 +46,12 @@ export const waitForElementAsync = async (selector: string): Promise<Element | n
 	});
 }
 
-export const getSetting = <T = string | boolean>(option: string, defaultValue: string | boolean = ''): T => {
+export const getSetting = <T = string | boolean | number>(option: string, defaultValue: string | boolean | number = ''): T => {
 	if (option.endsWith('-fm')) {
 		option = option.replace(/-fm$/, '');
 	}
 	option = "refined-now-playing-" + option;
-	let value: string | boolean | null = localStorage.getItem(option);
+	let value: string | boolean | number | null = localStorage.getItem(option);
 	if (value === null) {
 		value = defaultValue;
 	}
@@ -59,7 +59,12 @@ export const getSetting = <T = string | boolean>(option: string, defaultValue: s
 		value = true;
 	} else if (value === 'false') {
 		value = false;
-	}
+	} else if (!isNaN(Number(value)) && value !== '') {
+        // Try to parse as number if defaultValue is number
+        if (typeof defaultValue === 'number') {
+             value = Number(value);
+        }
+    }
 	return value as T;
 }
 

@@ -6,7 +6,6 @@ declare global {
         rnpTimeIndicator: string;
         timeIndicator: string;
     }
-    const loadedPlugins: any;
 }
 
 const injectHTML = (type: string, html: string, parent: HTMLElement, fun: (dom: HTMLElement) => void = (dom) => {}) => {
