@@ -1,10 +1,18 @@
 // Trigger lyrics-updated event when lyrics are updated
 // Also provide a global variable `currentLyrics` for other scripts to use
 
-import { parseLyric } from '../../liblyric/index.ts'
+import { parseLyric, LyricLine } from '../../liblyric/index'
 import { cyrb53 } from '../../utils/utils'
 
-const preProcessLyrics = (lyrics) => {
+declare const betterncm: any;
+declare global {
+	interface Window {
+		onProcessLyrics: (rawLyrics: any, songID: any) => any;
+		currentLyrics: any;
+	}
+}
+
+const preProcessLyrics = (lyrics: any): LyricLine[] | null => {
 	if (!lyrics) return null;
 	if (!lyrics.lrc) lyrics.lrc = {};
 
@@ -31,47 +39,25 @@ const preProcessLyrics = (lyrics) => {
 }
 
 
-const processLyrics = (lyrics) => {
+const processLyrics = (lyrics: LyricLine[] | null) => {
+	if (!lyrics) return [];
 	for (const line of lyrics) {
 		if (line.originalLyric == '') {
+			// @ts-ignore
 			line.isInterlude = true;
 		}
 	}
-	/*for (const line of lyrics) {
-		if (!line.dynamicLyric) {
-			// 拆开每一个 CJK 字符，但是保留英文单词不拆
-			// 例: "测试a test" => ["测", "试", "a", "test"]
-			line.dynamicLyric = line.originalLyric.replace(/([\p{Unified_Ideograph}|\u3040-\u309F|\u30A0-\u30FF])/gu, ' $1 ').replace(/\s+/g, ' ').trim().split(' ').map((x) => {
-				return {
-					word: x,
-				};
-			});
-		}
-		for (const word of line.dynamicLyric) {
-			// 如果是日语浊音符，就合并到前一个单词
-			if (word.word === 'ﾞ' || word.word === 'ﾟ') {
-				const prevWord = line.dynamicLyric[line.dynamicLyric.indexOf(word) - 1];
-				if (prevWord) {
-					prevWord.word += word.word;
-					if (prevWord.durations) prevWord.durations += word.durations;
-					line.dynamicLyric.splice(line.dynamicLyric.indexOf(word), 1);
-				}
-			}
-		}
-		// const sentense = line.dynamicLyric.map((x) => x.word).join('');
-		// console.log(sentense);
-	}*/
 	return lyrics;
 }
 
-let currentRawLRC = null;
+let currentRawLRC: string | null = null;
 
-const _onProcessLyrics = window.onProcessLyrics ?? ((x) => x);
-window.onProcessLyrics = (_rawLyrics, songID) => {
+const _onProcessLyrics = window.onProcessLyrics ?? ((x: any) => x);
+window.onProcessLyrics = (_rawLyrics: any, songID: any) => {
 	if (!_rawLyrics || _rawLyrics?.data === -400) return _onProcessLyrics(_rawLyrics, songID);
 
 	let rawLyrics = _rawLyrics;
-	if (typeof(_rawLyrics) === 'string') { // local lyrics
+	if (typeof (_rawLyrics) === 'string') { // local lyrics
 		rawLyrics = {
 			lrc: {
 				lyric: _rawLyrics,
@@ -84,15 +70,16 @@ window.onProcessLyrics = (_rawLyrics, songID) => {
 
 	if ((rawLyrics?.lrc?.lyric ?? '') != currentRawLRC) {
 		console.log('Update Raw Lyrics', rawLyrics);
-		currentRawLRC = (rawLyrics?.lrc?.lyric ?? '') ;
+		currentRawLRC = (rawLyrics?.lrc?.lyric ?? '');
 		const preprocessedLyrics = preProcessLyrics(rawLyrics);
 		setTimeout(async () => {
 			const processedLyrics = await processLyrics(preprocessedLyrics);
-			const lyrics = {
+			const lyrics: any = {
 				lyrics: processedLyrics,
 				contributors: {}
 			}
 
+			// @ts-ignore
 			if (processedLyrics[0]?.unsynced) {
 				lyrics.unsynced = true;
 			}
@@ -110,7 +97,7 @@ window.onProcessLyrics = (_rawLyrics, songID) => {
 				}
 			}
 			lyrics.contributors.roles = rawLyrics?.roles ?? [];
-			lyrics.contributors.roles = lyrics.contributors.roles.filter(role => {
+			lyrics.contributors.roles = lyrics.contributors.roles.filter((role: any) => {
 				if (role.artistMetaList.length == 1 && role.artistMetaList[0].artistName == '无' && role.artistMetaList[0].artistId == 0) {
 					return false;
 				}
@@ -126,7 +113,7 @@ window.onProcessLyrics = (_rawLyrics, songID) => {
 					}
 				}
 			}
-			
+
 
 			if (rawLyrics?.source) {
 				lyrics.contributors.lyricSource = rawLyrics.source;
@@ -138,7 +125,7 @@ window.onProcessLyrics = (_rawLyrics, songID) => {
 			console.log('contributors', window.currentLyrics.contributors);
 			console.log('hash', window.currentLyrics.hash);
 			console.groupEnd();
-			document.dispatchEvent(new CustomEvent('lyrics-updated', {detail: window.currentLyrics}));
+			document.dispatchEvent(new CustomEvent('lyrics-updated', { detail: window.currentLyrics }));
 		}, 0);
 	}
 	return _onProcessLyrics(_rawLyrics, songID);

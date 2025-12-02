@@ -1,10 +1,12 @@
+import React, { useState, useEffect, useRef } from 'react';
 import './mini-song-info.scss';
 
-const useState = React.useState;
-const useEffect = React.useEffect;
-const useRef = React.useRef;
+interface MiniSongInfoProps {
+    image: HTMLImageElement;
+    infContainer: HTMLElement;
+}
 
-export function MiniSongInfo(props) {
+export function MiniSongInfo(props: MiniSongInfoProps) {
 	const [title, setTitle] = useState('');
 	const [artist, setArtist] = useState('');
 	const [album, setAlbum] = useState('');
@@ -23,17 +25,26 @@ export function MiniSongInfo(props) {
 			setAlbum(image.src);
 		};
 		image.addEventListener('load', onload);
+        
+        // Initial check
+        if (image.complete && image.src !== album) {
+            setAlbum(image.src);
+        }
+
 		return () => {
 			observer.disconnect();
 			image.removeEventListener('load', onload);
 		}
-	}, [image]);
+	}, [image, album]);
 
 	const infContainer = props.infContainer;
 	useEffect(() => {
 		const onObverse = () => {
-			const title = infContainer.querySelector('.title .name').textContent.trim();
-			const artist = Array.from(infContainer.querySelectorAll('.info .playfrom > li:first-child a')).map(a => a.textContent.trim()).join(' / ');
+            const titleEl = infContainer.querySelector('.title .name');
+            const artistEls = infContainer.querySelectorAll('.info .playfrom > li:first-child a');
+            
+			const title = titleEl ? titleEl.textContent?.trim() ?? '' : '';
+			const artist = Array.from(artistEls).map(a => a.textContent?.trim() ?? '').join(' / ');
 			setTitle(title);
 			setArtist(artist);
 		};

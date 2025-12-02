@@ -1,26 +1,26 @@
-import './lyric-provider.js';
+import './lyric-provider';
 import { getSetting, setSetting, copyTextToClipboard } from '../../utils/utils';
-import { showContextMenu } from '../context-menu/context-menu.js';
+import { showContextMenu } from '../context-menu/context-menu';
 import './lyrics.scss';
 
 import _isEqual from 'lodash/isEqual';
+import React, { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef, MutableRefObject } from 'react';
+import { LyricLine, DynamicLyricWord } from '../../liblyric';
 
-const useState = React.useState;
-const useEffect = React.useEffect;
-const useLayoutEffect = React.useLayoutEffect;
-const useMemo = React.useMemo;
-const useCallback = React.useCallback;
-const useRef = React.useRef;
+declare const betterncm: any;
+declare const loadedPlugins: any;
+declare const channel: any;
+declare const legacyNativeCmder: any;
 
 const isFMSession = () => {
-	return !document.querySelector(".m-player-fm").classList.contains("f-dn");
+	return !document.querySelector(".m-player-fm")?.classList.contains("f-dn");
 }
 
-const customOpacityFunc = localStorage.getItem('rnp-custom-opacity-func', null) ? new Function('offset', localStorage.getItem('rnp-custom-opacity-func')) : null;
-const customBlurFunc = localStorage.getItem('rnp-custom-blur-func', null) ? new Function('offset', localStorage.getItem('rnp-custom-blur-func')) : null;
-const customScaleFunc = localStorage.getItem('rnp-custom-scale-func', null) ? new Function('offset', localStorage.getItem('rnp-custom-scale-func')) : null;
+const customOpacityFunc = localStorage.getItem('rnp-custom-opacity-func') ? new Function('offset', localStorage.getItem('rnp-custom-opacity-func')!) : null;
+const customBlurFunc = localStorage.getItem('rnp-custom-blur-func') ? new Function('offset', localStorage.getItem('rnp-custom-blur-func')!) : null;
+const customScaleFunc = localStorage.getItem('rnp-custom-scale-func') ? new Function('offset', localStorage.getItem('rnp-custom-scale-func')!) : null;
 
-const useRefState = (initialValue) => {
+const useRefState = <T,>(initialValue: T): [T, React.Dispatch<React.SetStateAction<T>>, React.MutableRefObject<T>] => {
 	const [value, setValue] = useState(initialValue);
 	const ref = useRef(value);
 	useEffect(() => {
@@ -29,26 +29,43 @@ const useRefState = (initialValue) => {
 	return [value, setValue, ref];
 }
 
-export function Lyrics(props) {
+interface LyricsProps {
+	isFM?: boolean;
+}
+
+interface LineTransform {
+	top: number;
+	scale: number;
+	delay: number;
+	blur?: number;
+	opacity?: number;
+	left?: number;
+	extraTop?: number;
+	rotate?: number;
+	outOfRangeHidden?: boolean;
+	duration?: number;
+}
+
+export function Lyrics(props: LyricsProps) {
 	const isFM = props.isFM ?? false;
 
 	const getPlayState = () => {
 		if (!isFM) {
-			return document.querySelector("#main-player .btnp").classList.contains("btnp-pause");
+			return document.querySelector("#main-player .btnp")?.classList.contains("btnp-pause") ?? true;
 		} else {
-			return document.querySelector(".m-player-fm .btnp").classList.contains("btnp-pause");
+			return document.querySelector(".m-player-fm .btnp")?.classList.contains("btnp-pause") ?? true;
 		}
 	}
 
-	const containerRef = useRef(null);
+	const containerRef = useRef<HTMLDivElement>(null);
 
-	let [lyrics, setLyrics] = useState(null);
-	const _lyrics = useRef(null);
+	let [lyrics, setLyrics] = useState<LyricLine[] | null>(null);
+	const _lyrics = useRef<LyricLine[] | null>(null);
 	const _setLyrics = setLyrics;
-	setLyrics = (x) => {
+	setLyrics = ((x: any) => {
 		_lyrics.current = x;
 		_setLyrics(x);
-	}
+	}) as any;
 	const [hasTranslation, setHasTranslation] = useState(false);
 	const [hasRomaji, setHasRomaji] = useState(false);
 	const [hasKaraoke, setHasKaraoke] = useState(false);
@@ -67,16 +84,16 @@ export function Lyrics(props) {
 	const _currentLine = useRef(0);
 	const _setCurrentLine = setCurrentLine;
 	setCurrentLine = (x) => {
-		_currentLine.current = x;
+		_currentLine.current = x as number;
 		_setCurrentLine(x);
 	}
 	const [currentLineForScrolling, setCurrentLineForScrolling] = useState(0);	// 为提前 0.2s 滚动，使滚动 delay 与逐词歌词对应 而设置的 提前的，仅用于滚动的 currentLine
 
-	const [globalOffset, setGlobalOffset, _globalOffset] = useRefState(parseInt(getSetting('lyric-offset', 0)));
+	const [globalOffset, setGlobalOffset, _globalOffset] = useRefState(parseInt(getSetting('lyric-offset', '0') as string));
 
-	const heightOfItems = useRef({});
+	const heightOfItems = useRef<{ [key: number]: number }>({});
 
-	const reportHeight = useCallback((index, height) => {
+	const reportHeight = useCallback((index: number, height: number) => {
 		if (heightOfItems.current[index] !== height) {
 			heightOfItems.current[index] = height;
 			// Only trigger update if height actually changed significantly or if it was 0/undefined
@@ -89,41 +106,43 @@ export function Lyrics(props) {
 	const [containerHeight, setContainerHeight] = useState(0);
 	const [containerWidth, setContainerWidth] = useState(0);
 
-	const [fontSize, setFontSize] = useState(getSetting('lyric-font-size', 32));
-	const [lyricFade, setLyricFade] = useState(getSetting('lyric-fade', false));
-	const [lyricZoom, setLyricZoom] = useState(getSetting('lyric-zoom', false));
-	const [lyricBlur, setLyricBlur] = useState(getSetting('lyric-blur', false));
-	const [lyricRotate, setLyricRotate] = useState(getSetting('lyric-rotate', false));
-	const [RotateCurvature, setRotateCurvature] = useState(getSetting('lyric-rotate-curvature', 30));
-	const [showTranslation, setShowTranslation] = useState(getSetting('show-translation', true));
-	const [showRomaji, setShowRomaji] = useState(getSetting('show-romaji', true));
-	const [useKaraokeLyrics, setUseKaraokeLyrics] = useState(getSetting('use-karaoke-lyrics', true));
-	const [karaokeAnimation, setKaraokeAnimation] = useState(getSetting('karaoke-animation', 'float'));
-	const [currentLyricAlignmentPercentage, setCurrentLyricAlignmentPercentage] = useState(parseInt(getSetting('current-lyric-alignment-percentage', 50)));
-	const [lyricStagger, setLyricStagger] = useState(getSetting('lyric-stagger', true));
-	const [lyricGlow, setLyricGlow] = useState(getSetting('lyric-glow', true));
+	const [fontSize, setFontSize] = useState<number>(parseInt(getSetting('lyric-font-size', '32') as string));
+	const [lyricFade, setLyricFade] = useState<boolean>(getSetting('lyric-fade', false) as boolean);
+	const [lyricZoom, setLyricZoom] = useState<boolean>(getSetting('lyric-zoom', false) as boolean);
+	const [lyricBlur, setLyricBlur] = useState<boolean>(getSetting('lyric-blur', false) as boolean);
+	const [lyricRotate, setLyricRotate] = useState<boolean>(getSetting('lyric-rotate', false) as boolean);
+	const [RotateCurvature, setRotateCurvature] = useState<number>(parseInt(getSetting('lyric-rotate-curvature', '30') as string));
+	const [showTranslation, setShowTranslation] = useState<boolean>(getSetting('show-translation', true) as boolean);
+	const [showRomaji, setShowRomaji] = useState<boolean>(getSetting('show-romaji', true) as boolean);
+	const [useKaraokeLyrics, setUseKaraokeLyrics] = useState<boolean>(getSetting('use-karaoke-lyrics', true) as boolean);
+	const [karaokeAnimation, setKaraokeAnimation] = useState<string>(getSetting('karaoke-animation', 'float') as string);
+	const [currentLyricAlignmentPercentage, setCurrentLyricAlignmentPercentage] = useState<number>(parseInt(getSetting('current-lyric-alignment-percentage', '50') as string));
+	const [lyricStagger, setLyricStagger] = useState<boolean>(getSetting('lyric-stagger', true) as boolean);
+	const [lyricGlow, setLyricGlow] = useState<boolean>(getSetting('lyric-glow', true) as boolean);
 
 	const [overviewMode, setOverviewMode] = useState(false);
 	const [overviewModeScrolling, setOverviewModeScrolling] = useState(false);
-	const exitOverviewModeScrollingTimeout = useRef(null);
-	const overviewContainerRef = useRef(null);
+	const exitOverviewModeScrollingTimeout = useRef<any>(null);
+	const overviewContainerRef = useRef<HTMLDivElement | null>(null);
 
-	const [lineTransforms, setLineTransforms] = useState([]);
+	const [lineTransforms, setLineTransforms] = useState<LineTransform[]>([]);
 	const shouldTransit = useRef(true);
 
-	const [allToNonInterludeLyricsMapping, setAllToNonInterludeLyricsMapping] = useState([]); // 所有歌词 index -> 非间奏歌词 index (间奏歌词则是往前最近的非间奏歌词)
-	const [nonInterludeToAllLyricsMapping, setNonInterludeToAllLyricsMapping] = useState([]); // 非间奏歌词 index -> 所有歌词 index
+	const [allToNonInterludeLyricsMapping, setAllToNonInterludeLyricsMapping] = useState<number[]>([]); // 所有歌词 index -> 非间奏歌词 index (间奏歌词则是往前最近的非间奏歌词)
+	const [nonInterludeToAllLyricsMapping, setNonInterludeToAllLyricsMapping] = useState<number[]>([]); // 非间奏歌词 index -> 所有歌词 index
 
 	let [scrollingMode, setScrollingMode] = useState(false);
 	const [scrollingFocusLine, setScrollingFocusLine] = useState(0);
 	const _scrollingMode = useRef(false);
 	const _scrollingFocusLine = useRef(0);
-	const exitScrollingModeTimeout = useRef(null);
+	const exitScrollingModeTimeout = useRef<any>(null);
 	const _setScrollingMode = setScrollingMode;
 	setScrollingMode = (x) => {
-		_scrollingMode.current = x;
-		if (x) containerRef.current.classList.add('scrolling');
-		else containerRef.current.classList.remove('scrolling');
+		_scrollingMode.current = x as boolean;
+		if (containerRef.current) {
+			if (x) containerRef.current.classList.add('scrolling');
+			else containerRef.current.classList.remove('scrolling');
+		}
 		_setScrollingMode(x);
 	}
 
@@ -137,9 +156,9 @@ export function Lyrics(props) {
 		return isFM ? isFMSession() : !isFMSession();
 	}
 
-	const preProcessMapping = (lyrics) => {
+	const preProcessMapping = (lyrics: any[]) => {
 		lyrics ??= [];
-		const allToNonInterlude = [], nonInterludeToAll = [];
+		const allToNonInterlude: number[] = [], nonInterludeToAll: number[] = [];
 		let cnt = 0;
 		for (let i = 0; i < lyrics.length; i++) {
 			const line = lyrics[i];
@@ -159,7 +178,7 @@ export function Lyrics(props) {
 		setNonInterludeToAllLyricsMapping(nonInterludeToAll);
 	}
 
-	const onLyricsUpdate = (e) => {
+	const onLyricsUpdate = (e: any) => {
 		if (!e.detail) {
 			return;
 		}
@@ -168,15 +187,15 @@ export function Lyrics(props) {
 		}
 		shouldTransit.current = false;
 		preProcessMapping(e.detail.lyrics);
-		if (!e.detail.amend){
+		if (!e.detail.amend) {
 			setScrollingMode(false);
 			setCurrentLine(0);
 			setCurrentLineForScrolling(0);
 		}
 		setLyrics(e.detail.lyrics);
-		setHasTranslation(e.detail.lyrics.some((x) => x.translatedLyric));
-		setHasRomaji(e.detail.lyrics.some((x) => x.romanLyric));
-		setHasKaraoke(e.detail.lyrics.some((x) => x.dynamicLyric));
+		setHasTranslation(e.detail.lyrics.some((x: any) => x.translatedLyric));
+		setHasRomaji(e.detail.lyrics.some((x: any) => x.romanLyric));
+		setHasKaraoke(e.detail.lyrics.some((x: any) => x.dynamicLyric));
 		setIsUnsynced(e.detail?.unsynced ?? false);
 
 		setLyricContributors(e.detail.contributors);
@@ -189,15 +208,17 @@ export function Lyrics(props) {
 
 	useEffect(() => {
 		shouldTransit.current = false;
+		// @ts-ignore
 		if (window.currentLyrics) {
+			// @ts-ignore
 			const currentLyrics = window.currentLyrics.lyrics;
 			preProcessMapping(currentLyrics);
 			setLyrics(currentLyrics);
-			setHasTranslation(currentLyrics.some((x) => x.translatedLyric));
-			setHasRomaji(currentLyrics.some((x) => x.romanLyric));
-			setHasKaraoke(currentLyrics.some((x) => x.dynamicLyric));
+			setHasTranslation(currentLyrics.some((x: any) => x.translatedLyric));
+			setHasRomaji(currentLyrics.some((x: any) => x.romanLyric));
+			setHasKaraoke(currentLyrics.some((x: any) => x.dynamicLyric));
 			setIsUnsynced(currentLyrics?.unsynced ?? false);
-
+			// @ts-ignore
 			setLyricContributors(window.currentLyrics.contributors);
 		}
 		document.addEventListener('lyrics-updated', onLyricsUpdate);
@@ -214,16 +235,18 @@ export function Lyrics(props) {
 	const recalcHeightOfItems = () => {
 		// Deprecated: Heights are reported by Line components
 	}
-	
+
 	const onResize = () => {
 		shouldTransit.current = false;
 		const container = containerRef.current;
+		if (!container) return;
 		setContainerHeight(container.clientHeight);
 		setContainerWidth(container.clientWidth);
 		//console.log('resize', container.clientWidth, container.clientHeight);
 	};
 
 	useEffect(() => {
+		if (!containerRef.current) return;
 		const resizeObserver = new ResizeObserver(() => {
 			onResize();
 		});
@@ -248,9 +271,10 @@ export function Lyrics(props) {
 	const previousFocusedLineRef = useRef(0);
 	useEffect(() => { // Recalculate vertical positions and transforms of each line
 		if (lyrics == null || lyrics == undefined) return;
+		if (!containerRef.current) return;
 
-		const space = fontSize * 1.2;
-		const delayByOffset = (offset) => {
+		const space = (fontSize as number) * 1.2;
+		const delayByOffset = (offset: number) => {
 			//console.log(currentLine, previousFocusedLineRef.current);
 			if (currentLineForScrolling == previousFocusedLineRef.current || scrollingMode) {
 				return 0;
@@ -262,37 +286,40 @@ export function Lyrics(props) {
 			offset = Math.max(-4, Math.min(4, offset)) * sign + 4;
 			return offset * 50;
 		};
-		const scaleByOffset = (offset) => {
+		const scaleByOffset = (offset: number) => {
 			if (!lyricZoom) return 1;
 			if (customScaleFunc) {
 				try {
-					return customScaleFunc(offset);
+					// @ts-ignore
+					return Number(customScaleFunc(offset));
 				} catch (e) {
 					console.error('Error in custom scale function', e);
 				}
 			}
 			offset = Math.abs(offset);
-			offset =  Math.max(1 - offset * 0.2, 0);
+			offset = Math.max(1 - offset * 0.2, 0);
 			return offset * offset * offset /* offset*/ * 0.3 + 0.7;
 		};
-		const blurByOffset = (offset) => {
+		const blurByOffset = (offset: number) => {
 			if (!lyricBlur || scrollingMode) return 0;
 			if (customBlurFunc) {
 				try {
-					return customBlurFunc(offset);
+					// @ts-ignore
+					return Number(customBlurFunc(offset));
 				} catch (e) {
 					console.error('Error in custom blur function', e);
 				}
-			}				
+			}
 			offset = Math.abs(offset);
 			if (offset == 0) return 0;
 			return Math.min(0.5 + 1 * offset, 4.5);
 		};
-		const opacityByOffset = (offset) => {
+		const opacityByOffset = (offset: number) => {
 			if (!lyricFade || scrollingMode) return 1;
 			if (customOpacityFunc) {
 				try {
-					return customOpacityFunc(offset);
+					// @ts-ignore
+					return Number(customOpacityFunc(offset));
 				} catch (e) {
 					console.error('Error in custom opacity function', e);
 				}
@@ -301,11 +328,12 @@ export function Lyrics(props) {
 			if (offset <= 1) return 1;
 			return Math.max(1 - 0.4 * (offset - 1), 0);
 		};
-		const setRotateTransform = (line, yOffset, height) => {
+		const setRotateTransform = (line: LineTransform, yOffset: number, height: number) => {
 			if (!lyricRotate) return;
-			const origin = [-120 + (RotateCurvature - 25), -(yOffset + height / 2)];
+			const curvature = parseInt(String(RotateCurvature));
+			const origin = [-120 + (curvature - 25), -(yOffset + height / 2)];
 			const len = Math.sqrt(origin[0] * origin[0] + origin[1] * origin[1]);
-			line.rotate = Math.min(yOffset / window.innerHeight * -RotateCurvature, 90);
+			line.rotate = Math.min(yOffset / window.innerHeight * -curvature, 90);
 
 			const deg = line.rotate + Math.atan2(origin[1], origin[0]) * 180 / Math.PI;
 			line.extraTop = Math.sin(deg * Math.PI / 180) * len - origin[1];
@@ -320,11 +348,11 @@ export function Lyrics(props) {
 
 		//console.log(currentLine, previousFocusedLineRef.current, currentLine - previousFocusedLineRef.current > 0 ? 1 : -1);
 
-		const getHeight = (index) => {
-			return heightOfItems.current[index] ?? (fontSize * 1.5 + 10);
+		const getHeight = (index: number) => {
+			return heightOfItems.current[index] ?? ((fontSize as number) * 1.5 + 10);
 		};
 
-		const transforms = [];
+		const transforms: LineTransform[] = [];
 		for (let i = 0; i <= lyrics.length; i++) transforms.push({ top: 0, scale: 1, delay: 0 });
 		//console.log('containerHeight', containerHeight);
 		let current = Math.min(Math.max(currentLineForScrolling ?? 0, 0), lyrics.length - 1);
@@ -336,13 +364,14 @@ export function Lyrics(props) {
 		if (!scrollingMode) recalcHeightOfItems();
 		//console.log(currentLine, current);
 		//transforms[current].top = containerHeight / 2 - getHeight(current) / 2;
-		transforms[current].top = 
-			containerRef.current.clientHeight * (currentLyricAlignmentPercentage * 0.01) - 
+		transforms[current].top =
+			containerRef.current.clientHeight * (currentLyricAlignmentPercentage * 0.01) -
 			getHeight(current) / 2;
 		transforms[current].scale = 1;
 		transforms[current].delay = delayByOffset(0);
 		transforms[current].blur = blurByOffset(0);
 		const currentLineHeight = getHeight(current);
+		// @ts-ignore
 		if (lyrics[current]?.isInterlude && !scrollingMode) {
 			// temporary heighten the interlude line
 			heightOfItems.current[current] = currentLineHeight + 50;
@@ -398,11 +427,11 @@ export function Lyrics(props) {
 				transforms[i].duration = 200;
 			}
 		}*/
-	
+
 		setLineTransforms(transforms);
 		//console.log('transforms', transforms);
 		previousFocusedLineRef.current = currentLineForScrolling;
-	},[
+	}, [
 		currentLineForScrolling,
 		containerHeight, containerWidth,
 		fontSize, lyricFade, lyricZoom, lyricBlur, lyricRotate, RotateCurvature,
@@ -415,19 +444,19 @@ export function Lyrics(props) {
 	]);
 
 
-	const onPlayStateChange = (id, state) => {
+	const onPlayStateChange = (id: any, state: any) => {
 		if (!isCurrentModeSession()) {
 			return;
 		}
 		_playState.current = getPlayState();
 		setPlayState(_playState.current);
 		//setPlayState((state.split("|")[1] == "resume"));
-		if (document.querySelector(".m-player-fm .btnp").classList.contains("btnp-pause")) {
+		if (document.querySelector(".m-player-fm .btnp")?.classList.contains("btnp-pause")) {
 			setCurrentLineForScrolling(currentLine);
 		}
 		setSongId(id);
 	};
-	const onPlayProgress = (id, progress) => {
+	const onPlayProgress = (id: any, progress: any) => {
 		if (!isCurrentModeSession()) {
 			return;
 		}
@@ -447,7 +476,7 @@ export function Lyrics(props) {
 		if (currentTimeWithOffset < lastTime - 10) {
 			setSeekCounter(+new Date());
 		}
-	
+
 		let cur = 0;
 		for (let i = startIndex; i < _lyrics.current.length; i++) {
 			if (_lyrics.current[i].time <= currentTimeWithOffset) {
@@ -458,12 +487,14 @@ export function Lyrics(props) {
 		}
 		if (
 			cur == _lyrics.current.length - 1 &&
+			// @ts-ignore
 			_lyrics.current[cur].duration &&
+			// @ts-ignore
 			currentTimeWithOffset > _lyrics.current[cur].time + _lyrics.current[cur].duration + 500
 		) {
 			cur = _lyrics.current.length;
 		}
-	
+
 		let curForScrolling = Math.max(0, cur - 1);
 		const scrollingDelay = lyricStagger ? 200 : 0;
 		for (let i = startIndex; i < _lyrics.current.length; i++) {
@@ -473,7 +504,7 @@ export function Lyrics(props) {
 				break;
 			}
 		}
-		
+
 		shouldTransit.current = true;
 		if (!_scrollingMode.current) {
 			setScrollingFocusLine(cur);
@@ -491,10 +522,10 @@ export function Lyrics(props) {
 		legacyNativeCmder.appendRegisterCall("PlayState", "audioplayer", onPlayStateChange);
 		legacyNativeCmder.appendRegisterCall("PlayProgress", "audioplayer", onPlayProgress);
 		const _channalCall = channel.call;
-		channel.call = (name, ...args) => {
+		channel.call = (name: any, ...args: any) => {
 			if (name == "audioplayer.seek") {
 				if (isCurrentModeSession()) {
-					currentTime.current = parseInt(args[1][2] * 1000);
+					currentTime.current = Math.floor(args[1][2] * 1000);
 					setScrollingMode(false);
 					setSeekCounter(+new Date());
 				}
@@ -508,12 +539,12 @@ export function Lyrics(props) {
 		}
 	}, []);
 
-	const jumpToTime = useCallback((time) => {
+	const jumpToTime = useCallback((time: number) => {
 		time -= _globalOffset.current;
 		shouldTransit.current = true;
 		setScrollingMode(false);
 		//console.log(songId);
-		channel.call("audioplayer.seek", () => {}, [
+		channel.call("audioplayer.seek", () => { }, [
 			songId,
 			`${songId}|seek|${Math.random().toString(36).substring(6)}`,
 			time / 1000,
@@ -525,13 +556,13 @@ export function Lyrics(props) {
 		]);*/
 		setSeekCounter(+new Date());
 		if (!playState) {
-			if (!isFM) document.querySelector("#main-player .btnp").click();
-			else document.querySelector(".m-player-fm .btnp").click();
+			if (!isFM) (document.querySelector("#main-player .btnp") as HTMLElement)?.click();
+			else (document.querySelector(".m-player-fm .btnp") as HTMLElement)?.click();
 		}
 	}, [songId, playState, globalOffset]);
 
 	// Scrolling mode
-	
+
 	const exitScrollingModeSoon = useCallback((timeout = 2500) => {
 		cancelExitScrollingModeTimeout();
 		if (!_playState.current) return;
@@ -550,7 +581,7 @@ export function Lyrics(props) {
 		}
 	}, []);
 
-	const scrollingFocusOnLine = useCallback((line) => {
+	const scrollingFocusOnLine = useCallback((line: number) => {
 		if (line == null) return;
 		shouldTransit.current = true;
 		setScrollingMode(true);
@@ -558,9 +589,11 @@ export function Lyrics(props) {
 		_scrollingFocusLine.current = line;
 	}, []);
 
-	const onWheel = (e) => {
+	const onWheel = (e: WheelEvent) => {
+		if (!_lyrics.current) return false;
 		if (e.deltaY > 0) {
 			for (let target = _scrollingFocusLine.current + 1; target < _lyrics.current.length; target++) {
+				// @ts-ignore
 				if (!_lyrics.current[target].isInterlude) {
 					scrollingFocusOnLine(target);
 					break;
@@ -569,6 +602,7 @@ export function Lyrics(props) {
 			exitScrollingModeSoon();
 		} else if (e.deltaY < 0) {
 			for (let target = _scrollingFocusLine.current - 1; target >= 0; target--) {
+				// @ts-ignore
 				if (!_lyrics.current[target].isInterlude) {
 					scrollingFocusOnLine(target);
 					break;
@@ -580,6 +614,7 @@ export function Lyrics(props) {
 	};
 
 	useEffect(() => {
+		if (!containerRef.current) return;
 		containerRef.current.addEventListener("scroll", (e) => {
 			e.stopPropagation();
 			e.preventDefault();
@@ -604,37 +639,37 @@ export function Lyrics(props) {
 	}, []);
 
 	useEffect(() => {
-		const onLyricFontSizeChange = (e) => {
-			setFontSize(e.detail ?? 32);
+		const onLyricFontSizeChange = (e: any) => {
+			setFontSize(parseInt(e.detail ?? '32'));
 		}
-		const onLyricFadeChange = (e) => {
+		const onLyricFadeChange = (e: any) => {
 			setLyricFade(e.detail ?? false);
 		}
-		const onLyricZoomChange = (e) => {
+		const onLyricZoomChange = (e: any) => {
 			setLyricZoom(e.detail ?? false);
 		}
-		const onLyricBlurChange = (e) => {
+		const onLyricBlurChange = (e: any) => {
 			setLyricBlur(e.detail ?? false);
 		}
-		const onLyricRotateChange = (e) => {
+		const onLyricRotateChange = (e: any) => {
 			setLyricRotate(e.detail ?? false);
 		}
-		const onRotateCurvatureChange = (e) => {
-			setRotateCurvature(e.detail ?? 30);
+		const onRotateCurvatureChange = (e: any) => {
+			setRotateCurvature(parseInt(e.detail ?? '30'));
 		}
-		const onKaraokeAnimationChange = (e) => {
+		const onKaraokeAnimationChange = (e: any) => {
 			setKaraokeAnimation(e.detail ?? 'float');
 			setTimeout(() => {
 				window.dispatchEvent(new CustomEvent("recalc-lyrics"));
 			}, 0);
 		}
-		const onCurrentLyricAlignmentPercentageChange = (e) => {
+		const onCurrentLyricAlignmentPercentageChange = (e: any) => {
 			setCurrentLyricAlignmentPercentage(parseInt(e.detail) ?? 50);
 		}
-		const onLyricStaggerChange = (e) => {
+		const onLyricStaggerChange = (e: any) => {
 			setLyricStagger(e.detail ?? true);
 		}
-		const onLyricGlowChange = (e) => {
+		const onLyricGlowChange = (e: any) => {
 			setLyricGlow(e.detail ?? true);
 		}
 		document.addEventListener("rnp-lyric-font-size", onLyricFontSizeChange);
@@ -662,7 +697,7 @@ export function Lyrics(props) {
 	}, []);
 
 	useEffect(() => {
-		const onGlobalOffsetChange = (e) => {
+		const onGlobalOffsetChange = (e: any) => {
 			setGlobalOffset(parseInt(e.detail) ?? 0);
 			setSeekCounter(+new Date());
 		}
@@ -679,7 +714,7 @@ export function Lyrics(props) {
 		if (overviewModeScrolling) return;
 		if (!overviewContainerRef.current) return;
 		const container = overviewContainerRef.current;
-		const current = container.querySelector('.rnp-lyrics-overview-line.current');
+		const current = container.querySelector('.rnp-lyrics-overview-line.current') as HTMLElement;
 		if (!current) return;
 		const scrollTop = current.offsetTop - container.clientHeight / 2 + current.clientHeight / 2;
 		container.scrollTop = scrollTop;
@@ -690,7 +725,7 @@ export function Lyrics(props) {
 		if (overviewModeScrolling) return;
 		if (!overviewContainerRef.current) return;
 		const container = overviewContainerRef.current;
-		const current = container.querySelector('.rnp-lyrics-overview-line.current');
+		const current = container.querySelector('.rnp-lyrics-overview-line.current') as HTMLElement;
 		if (!current) return;
 		const scrollTop = current.offsetTop - container.clientHeight / 2 + current.clientHeight / 2;
 		container.scrollTo({ top: scrollTop, behavior: 'smooth' });
@@ -714,6 +749,7 @@ export function Lyrics(props) {
 		const container = overviewContainerRef.current;
 		const selection = window.getSelection();
 		const range = document.createRange();
+		if (!container || !selection) return;
 		range.selectNodeContents(container);
 		selection.removeAllRanges();
 		selection.addRange(range);
@@ -741,7 +777,7 @@ export function Lyrics(props) {
 						showTranslation={showTranslation}
 						showRomaji={showRomaji}
 						useKaraokeLyrics={useKaraokeLyrics}
-						jumpToTime={isPureMusic ? () => {} : jumpToTime}
+						jumpToTime={isPureMusic ? () => { } : jumpToTime}
 						transforms={lineTransforms[index] ?? { top: 0, scale: 1, delay: 0, blur: 0 }}
 						karaokeAnimation={karaokeAnimation}
 						outOfRangeScrolling={scrollingMode && length > 100 && Math.abs(index - scrollingFocusLine) > 20}
@@ -773,7 +809,7 @@ export function Lyrics(props) {
 						rnp-lyrics-switch-btn-top
 						rnp-lyrics-switch-btn-placeholder
 					`}
-					style={{visibility: 'hidden'}}
+					style={{ visibility: 'hidden' }}
 				>
 				</button>
 				{
@@ -788,7 +824,7 @@ export function Lyrics(props) {
 						onClick={() => {
 							setOverviewMode(!overviewMode);
 						}}>
-						<svg style={{transform: 'translate(-2px, -2px)'}} xmlns="http://www.w3.org/2000/svg" height="20" width="20"><path d="M4.146 14.854v-1.396h6.792v1.396Zm0-2.937v-1.396h11.729v1.396Zm0-2.959V7.562h11.729v1.396Zm0-2.937V4.625h11.729v1.396Z"/></svg>
+						<svg style={{ transform: 'translate(-2px, -2px)' }} xmlns="http://www.w3.org/2000/svg" height="20" width="20"><path d="M4.146 14.854v-1.396h6.792v1.396Zm0-2.937v-1.396h11.729v1.396Zm0-2.959V7.562h11.729v1.396Zm0-2.937V4.625h11.729v1.396Z" /></svg>
 					</button>
 				}
 				{
@@ -803,24 +839,26 @@ export function Lyrics(props) {
 						onClick={() => {
 							overviewModeSelectAll();
 						}}>
-						<svg style={{transform: 'translate(-1px, 0px)'}} xmlns="http://www.w3.org/2000/svg" height="20" width="20"><path d="M4.583 16.833q-.583 0-.989-.406t-.406-.989h1.395Zm-1.395-3v-1.479h1.395v1.479Zm0-3.083V9.271h1.395v1.479Zm0-3.083V6.188h1.395v1.479Zm0-3.084q0-.583.406-.989t.989-.406v1.395Zm2.874 9.375V6.062h7.896v7.896Zm.126 2.875v-1.395h1.479v1.395Zm0-12.25V3.188h1.479v1.395Zm1.27 7.979h5.104V7.458H7.458Zm1.813 4.271v-1.395h1.479v1.395Zm0-12.25V3.188h1.479v1.395Zm3.083 12.25v-1.395h1.479v1.395Zm0-12.25V3.188h1.479v1.395Zm3.084 12.25v-1.395h1.395q0 .583-.406.989t-.989.406Zm0-3v-1.479h1.395v1.479Zm0-3.083V9.271h1.395v1.479Zm0-3.083V6.188h1.395v1.479Zm0-3.084V3.188q.583 0 .989.406t.406.989Z" transform="scale(0.8)"/></svg>
+						<svg style={{ transform: 'translate(-1px, 0px)' }} xmlns="http://www.w3.org/2000/svg" height="20" width="20"><path d="M4.583 16.833q-.583 0-.989-.406t-.406-.989h1.395Zm-1.395-3v-1.479h1.395v1.479Zm0-3.083V9.271h1.395v1.479Zm0-3.083V6.188h1.395v1.479Zm0-3.084q0-.583.406-.989t.989-.406v1.395Zm2.874 9.375V6.062h7.896v7.896Zm.126 2.875v-1.395h1.479v1.395Zm0-12.25V3.188h1.479v1.395Zm1.27 7.979h5.104V7.458H7.458Zm1.813 4.271v-1.395h1.479v1.395Zm0-12.25V3.188h1.479v1.395Zm3.083 12.25v-1.395h1.479v1.395Zm0-12.25V3.188h1.479v1.395Zm3.084 12.25v-1.395h1.395q0 .583-.406.989t-.989.406Zm0-3v-1.479h1.395v1.479Zm0-3.083V9.271h1.395v1.479Zm0-3.083V6.188h1.395v1.479Zm0-3.084V3.188q.583 0 .989.406t.406.989Z" transform="scale(0.8)" /></svg>
 					</button>
 				}
-				<div className="rnp-lyrics-switch-btn-divider"/>
+				<div className="rnp-lyrics-switch-btn-divider" />
 				<button
 					className={`
 						rnp-lyrics-switch-btn
 						generate-gpt-translation-btn
 					`}
-					style={{display: 'none', marginBottom: '10px'}}
+					style={{ display: 'none', marginBottom: '10px' }}
 					title="使用 ChatGPT 生成翻译"
 					onClick={async () => {
+						// @ts-ignore
 						if (window.generateGPTTranslation) {
+							// @ts-ignore
 							await window.generateGPTTranslation();
 						}
 					}}>
-						<svg viewBox="0 0 24 24" role="img" xmlns="http://www.w3.org/2000/svg"><path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z"/></svg>
-					</button>
+					<svg viewBox="0 0 24 24" role="img" xmlns="http://www.w3.org/2000/svg"><path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z" /></svg>
+				</button>
 				<button
 					className={`
 						rnp-lyrics-switch-btn
@@ -832,7 +870,7 @@ export function Lyrics(props) {
 						setSetting("show-translation", !showTranslation);
 						setShowTranslation(!showTranslation);
 					}}>译</button>
-				<button 
+				<button
 					className={`
 						rnp-lyrics-switch-btn
 						${showRomaji ? 'active' : ''}
@@ -843,7 +881,7 @@ export function Lyrics(props) {
 						setSetting("show-romaji", !showRomaji);
 						setShowRomaji(!showRomaji);
 					}}>音</button>
-				<button 
+				<button
 					className={
 						`rnp-lyrics-switch-btn
 						${useKaraokeLyrics ? 'active' : ''}
@@ -873,9 +911,28 @@ export function Lyrics(props) {
 	);
 }
 
-function Line(props) {
-	const lineRef = useRef(null);
-	
+interface LineProps {
+	id: number;
+	line: LyricLine;
+	currentLine: number;
+	currentTime: number;
+	seekCounter: number;
+	playState: boolean;
+	showTranslation: boolean;
+	showRomaji: boolean;
+	useKaraokeLyrics: boolean;
+	jumpToTime: (time: number) => void;
+	transforms: LineTransform;
+	karaokeAnimation: string;
+	outOfRangeScrolling: boolean;
+	outOfRangeKaraoke: boolean;
+	lyricGlow: boolean;
+	reportHeight: (index: number, height: number) => void;
+}
+
+function Line(props: LineProps) {
+	const lineRef = useRef<HTMLDivElement>(null);
+
 	useEffect(() => {
 		if (!lineRef.current) return;
 		const observer = new ResizeObserver(entries => {
@@ -893,22 +950,24 @@ function Line(props) {
 		const offset = props.id - props.currentLine;
 		return (
 			<div
+				// @ts-ignore
 				className={`rnp-lyrics-line ${props.line.isInterlude ? 'rnp-interlude' : ''}`}
-				offset={offset}
-				style={{display: 'none'}}
+				data-offset={offset}
+				style={{ display: 'none' }}
 			/>
 		)
 	}
 	return <LineContent {...props} lineRef={lineRef} />;
 }
 
-function LineContent(props) {
+function LineContent(props: LineProps & { lineRef: React.RefObject<HTMLDivElement | null> }) {
 	if (props.line.originalLyric == '') {
+		// @ts-ignore
 		props.line.isInterlude = true;
 	}
 	const offset = props.id - props.currentLine;
-	const karaokeAnimationFloat = (word) => {
-		if (props.currentLine != props.id){
+	const karaokeAnimationFloat = (word: DynamicLyricWord) => {
+		if (props.currentLine != props.id) {
 			return {
 				transitionDuration: `200ms`,
 				transitionDelay: `0ms`,
@@ -927,8 +986,8 @@ function LineContent(props) {
 			transitionDelay: `${word.time - props.currentTime}ms`
 		};
 	};
-	const karaokeAnimationSlide = (word) => {
-		if (props.currentLine != props.id){
+	const karaokeAnimationSlide = (word: DynamicLyricWord) => {
+		if (props.currentLine != props.id) {
 			return {
 				transitionDuration: `0ms, 0ms, 0.5s`,
 				transitionDelay: `0ms`,
@@ -947,7 +1006,7 @@ function LineContent(props) {
 			transitionDelay: `${word.time - props.currentTime}ms, ${word.time - props.currentTime + word.duration * 0.5}ms, 0ms`
 		};
 	};
-	const getKaraokeAnimation = (word) => {
+	const getKaraokeAnimation = (word: DynamicLyricWord) => {
 		if (props.karaokeAnimation == 'float') {
 			return karaokeAnimationFloat(word);
 		} else if (props.karaokeAnimation == 'slide') {
@@ -955,7 +1014,7 @@ function LineContent(props) {
 		}
 	};
 
-	const karaokeLineRef = useRef(null);
+	const karaokeLineRef = useRef<HTMLDivElement>(null);
 	useEffect(() => {
 		if (props.currentLine != props.id) return;
 		if (!karaokeLineRef.current) return;
@@ -967,7 +1026,7 @@ function LineContent(props) {
 	}, [props.useKaraokeLyrics, props.seekCounter, props.karaokeAnimation]);
 
 
-	const glowAnimationsRef = useRef([]);
+	const glowAnimationsRef = useRef<any[]>([]);
 	useEffect(() => {
 		if (!props.lyricGlow) return;
 
@@ -981,9 +1040,11 @@ function LineContent(props) {
 		}
 		if (trailingIndexes.length == 0) return;
 
-		const glowAnimation = (index) => {
+		const glowAnimation = (index: number) => {
 			if (!karaokeLineRef.current?.children[index]) return null;
+			// @ts-ignore
 			const fadeIn = props.line.dynamicLyric[index].duration * 0.6;
+			// @ts-ignore
 			const keep = props.line.dynamicLyric[index].duration * 0.4;
 			const fadeAway = 500;
 			const duration = fadeIn + keep + fadeAway;
@@ -992,16 +1053,18 @@ function LineContent(props) {
 				keep: keep,
 				fadeAway: fadeAway,
 				duration: duration,
+				// @ts-ignore
 				wordTime: props.line.dynamicLyric[index].time,
+				// @ts-ignore
 				wordDuration: props.line.dynamicLyric[index].duration
 			};
 
 			const glowTarget = karaokeLineRef.current?.children[index];
 			const glowAnimation = glowTarget.animate([
-				{filter: 'drop-shadow(0 0 0px rgba(var(--rnp-accent-color-shade-2-rgb), 0)) drop-shadow(0 0 0px rgba(var(--rnp-accent-color-shade-2-rgb), 0))'},
-				{filter: 'drop-shadow(0 0 15px rgba(var(--rnp-accent-color-shade-2-rgb), 1)) drop-shadow(0 0 10px rgba(var(--rnp-accent-color-shade-2-rgb), 0.5))', offset: fadeIn / duration},
-				{filter: 'drop-shadow(0 0 15px rgba(var(--rnp-accent-color-shade-2-rgb), 1)) drop-shadow(0 0 10px rgba(var(--rnp-accent-color-shade-2-rgb), 0.5))', offset: (fadeIn + keep) / duration},
-				{filter: 'drop-shadow(0 0 0px rgba(var(--rnp-accent-color-shade-2-rgb), 0)) drop-shadow(0 0 0px rgba(var(--rnp-accent-color-shade-2-rgb), 0))', offset: 1}
+				{ filter: 'drop-shadow(0 0 0px rgba(var(--rnp-accent-color-shade-2-rgb), 0)) drop-shadow(0 0 0px rgba(var(--rnp-accent-color-shade-2-rgb), 0))' },
+				{ filter: 'drop-shadow(0 0 15px rgba(var(--rnp-accent-color-shade-2-rgb), 1)) drop-shadow(0 0 10px rgba(var(--rnp-accent-color-shade-2-rgb), 0.5))', offset: fadeIn / duration },
+				{ filter: 'drop-shadow(0 0 15px rgba(var(--rnp-accent-color-shade-2-rgb), 1)) drop-shadow(0 0 10px rgba(var(--rnp-accent-color-shade-2-rgb), 0.5))', offset: (fadeIn + keep) / duration },
+				{ filter: 'drop-shadow(0 0 0px rgba(var(--rnp-accent-color-shade-2-rgb), 0)) drop-shadow(0 0 0px rgba(var(--rnp-accent-color-shade-2-rgb), 0))', offset: 1 }
 			], {
 				duration: duration,
 				fill: 'forwards',
@@ -1037,7 +1100,7 @@ function LineContent(props) {
 			const timing = glowAnimation.timing;
 
 			if (props.currentLine != props.id) {
-				if (props.currentLine > props.id) { 
+				if (props.currentLine > props.id) {
 					if (animation.playState == 'running') {
 						continue;
 					}
@@ -1066,16 +1129,19 @@ function LineContent(props) {
 	return (
 		<div
 			ref={props.lineRef}
+			// @ts-ignore
 			className={`rnp-lyrics-line ${offset < 0 ? 'passed' : ''} ${props.line.isInterlude ? 'rnp-interlude' : ''}`}
+			// @ts-ignore
 			offset={offset}
 			onClick={() => props.jumpToTime(props.line.time + 50)}
 			onContextMenu={(e) => {
 				e.preventDefault();
+				// @ts-ignore
 				if (props.line.isInterlude || !props.line.originalLyric) return;
 				let all = props.line.originalLyric;
 				if (props.showRomaji && props.line.romanLyric) all += '\n' + props.line.romanLyric;
 				if (props.showTranslation && props.line.translatedLyric) all += '\n' + props.line.translatedLyric;
-				const items = [
+				const items: any[] = [
 					{
 						label: '复制该句歌词',
 						callback: () => {
@@ -1097,6 +1163,7 @@ function LineContent(props) {
 						items.push({
 							label: '复制罗马音',
 							callback: () => {
+								// @ts-ignore
 								copyTextToClipboard(props.line.romanLyric);
 							}
 						});
@@ -1105,6 +1172,7 @@ function LineContent(props) {
 						items.push({
 							label: '复制翻译',
 							callback: () => {
+								// @ts-ignore
 								copyTextToClipboard(props.line.translatedLyric);
 							}
 						});
@@ -1124,50 +1192,61 @@ function LineContent(props) {
 				transitionDuration: `${props.transforms?.duration ?? 500}ms`,
 				filter: props.transforms?.blur ? `blur(${props.transforms?.blur}px)` : 'none',
 				opacity: props.transforms?.opacity ?? 1,
-				...props.transforms?.outOfRangeHidden && {visibility: 'hidden'},
+				...props.transforms?.outOfRangeHidden && { visibility: 'hidden' },
 				willChange: 'transform, opacity, filter'
 			}}>
-			{ props.line.dynamicLyric && props.useKaraokeLyrics && !props.outOfRangeKaraoke && <div className="rnp-lyrics-line-karaoke" ref={karaokeLineRef}>
+			{props.line.dynamicLyric && props.useKaraokeLyrics && !props.outOfRangeKaraoke && <div className="rnp-lyrics-line-karaoke" ref={karaokeLineRef}>
 				{props.line.dynamicLyric.map((word, index) => {
 					return <div
 						key={`${props.karaokeAnimation} ${index}`}
+						// @ts-ignore
 						ref={karaokeLineRef.current?.children[index]}
 						className={`rnp-karaoke-word ${word?.isCJK ? 'is-cjk' : ''} ${word?.endsWithSpace ? 'end-with-space' : ''}`}
 						style={getKaraokeAnimation(word)}>
-							<span>{word.word}</span>
-							{
-								props.karaokeAnimation == 'slide' && <span className="rnp-karaoke-word-filler" style={getKaraokeAnimation(word)}>{word.word}</span>
-							}
+						<span>{word.word}</span>
+						{
+							props.karaokeAnimation == 'slide' && <span className="rnp-karaoke-word-filler" style={getKaraokeAnimation(word)}>{word.word}</span>
+						}
 					</div>
 				})}
-			</div> }
-			{ !(props.line.dynamicLyric && props.useKaraokeLyrics && !props.outOfRangeKaraoke) && props.line.originalLyric && <div className="rnp-lyrics-line-original">
-				{ props.line.originalLyric }
-			</div> }
-			{ props.line.romanLyric && props.showRomaji && <div className="rnp-lyrics-line-romaji">
-				{ props.line.romanLyric }
-			</div> }
-			{ props.line.translatedLyric && props.showTranslation && <div className="rnp-lyrics-line-translated">
-				{ props.line.translatedLyric }
-			</div> }
-			{ props.line.isInterlude && <Interlude
+			</div>}
+			{!(props.line.dynamicLyric && props.useKaraokeLyrics && !props.outOfRangeKaraoke) && props.line.originalLyric && <div className="rnp-lyrics-line-original">
+				{props.line.originalLyric}
+			</div>}
+			{props.line.romanLyric && props.showRomaji && <div className="rnp-lyrics-line-romaji">
+				{props.line.romanLyric}
+			</div>}
+			{props.line.translatedLyric && props.showTranslation && <div className="rnp-lyrics-line-translated">
+				{props.line.translatedLyric}
+			</div>}
+			{/* @ts-ignore */}
+			{props.line.isInterlude && <Interlude
 				id={props.id}
 				line={props.line}
 				currentLine={props.currentLine}
 				currentTime={props.currentTime}
 				seekCounter={props.seekCounter}
 				playState={props.playState}
-			/> }
+			/>}
 		</div>
 	)
 
 }
 
-function Interlude(props) {
-	const dotContainerRef = useRef(null);
+interface InterludeProps {
+	id: number;
+	line: LyricLine;
+	currentLine: number;
+	currentTime: number;
+	seekCounter: number;
+	playState: boolean;
+}
+
+function Interlude(props: InterludeProps) {
+	const dotContainerRef = useRef<HTMLDivElement>(null);
 
 	const dotCount = 3;
-	const perDotTime = parseInt(props.line.duration / dotCount);
+	const perDotTime = parseInt(String(props.line.duration / dotCount));
 	const dots = [];
 	for (let i = 0; i < dotCount; i++) {
 		dots.push({
@@ -1175,9 +1254,9 @@ function Interlude(props) {
 			duration: perDotTime,
 		});
 	}
-	const dotAnimation = (dot) => {
+	const dotAnimation = (dot: any) => {
 		if (dotContainerRef.current) dotContainerRef.current.classList.add('pause-breath');
-		if (props.currentLine != props.id){
+		if (props.currentLine != props.id) {
 			return {
 				transitionDuration: `200ms`,
 				transitionDelay: `0ms`,
@@ -1220,7 +1299,12 @@ function Interlude(props) {
 	)
 }
 
-function Contributors(props) {
+interface ContributorsProps {
+	transforms: LineTransform;
+	contributors: any;
+}
+
+function Contributors(props: ContributorsProps) {
 	const contributors = props.contributors;
 	return (
 		<div
@@ -1236,11 +1320,11 @@ function Contributors(props) {
 				transitionDuration: `${props.transforms?.duration ?? 500}ms`,
 				filter: props.transforms?.blur ? `blur(${props.transforms?.blur}px)` : 'none',
 				opacity: props.transforms?.opacity ?? 1,
-				...props.transforms?.outOfRangeHidden && {visibility: 'hidden'}
-			}}>	
+				...props.transforms?.outOfRangeHidden && { visibility: 'hidden' }
+			}}>
 			<div className="rnp-contributors-inner">
 				{
-					(contributors?.roles ?? []).map((role, index) => {
+					(contributors?.roles ?? []).map((role: any, index: number) => {
 						return <Artist key={index} role={role} />
 					})
 				}
@@ -1252,7 +1336,11 @@ function Contributors(props) {
 	);
 }
 
-function Artist(props) {
+interface ArtistProps {
+	role: any;
+}
+
+function Artist(props: ArtistProps) {
 	if (!props.role) {
 		return null;
 	}
@@ -1260,27 +1348,33 @@ function Artist(props) {
 		<div className="rnp-contributor rnp-contributor-artist">
 			<span>{props.role.roleName}: </span>
 			{
-				props.role.artistMetaList.map((artist, index) => {
+				props.role.artistMetaList.map((artist: any, index: number) => {
 					return (
-						<>
+						<React.Fragment key={index}>
 							{
 								artist.artistId ?
-								<a className="rnp-contributor-artist" href={`#/m/artist/?id=${artist.artistId}`}>
-									{artist.artistName}
-								</a> :
-								<span className="rnp-contributor-artist">
-									{artist.artistName}
-								</span>
+									<a className="rnp-contributor-artist" href={`#/m/artist/?id=${artist.artistId}`}>
+										{artist.artistName}
+									</a> :
+									<span className="rnp-contributor-artist">
+										{artist.artistName}
+									</span>
 							}
 							{index < props.role.artistMetaList.length - 1 && <span>, </span>}
-						</>
+						</React.Fragment>
 					);
 				})
 			}
 		</div>
 	);
 }
-function Contributor(props) {
+
+interface ContributorProps {
+	text: string;
+	user: any;
+}
+
+function Contributor(props: ContributorProps) {
 	if (!props.user) {
 		return null;
 	}
@@ -1288,20 +1382,36 @@ function Contributor(props) {
 		<div className="rnp-contributor rnp-contributor-lyrics">
 			<span>{props.text}: </span>
 			{
-				props?.user?.userid ?	
-				<a className="rnp-contributor-user" href={`#/m/personal/?uid=${props.user.userid}`}>
-					{props.user.name}
-				</a> :
-				<span className="rnp-contributor-user">
-					{props.user.name}
-				</span>
+				props?.user?.userid ?
+					<a className="rnp-contributor-user" href={`#/m/personal/?uid=${props.user.userid}`}>
+						{props.user.name}
+					</a> :
+					<span className="rnp-contributor-user">
+						{props.user.name}
+					</span>
 			}
 		</div>
 	);
 }
-function Scrollbar(props) {
-	const scrollbarRef = useRef(null);
-	const thumbRef = useRef(null);
+
+interface ScrollbarProps {
+	nonInterludeToAll: number[];
+	allToNonInterlude: number[];
+	currentLine: number;
+	containerHeight: number;
+	scrollingMode: boolean;
+	scrollingFocusLine: number;
+	scrollingFocusOnLine: (line: number) => void;
+	exitScrollingModeSoon: () => void;
+	overviewMode: boolean;
+}
+
+function Scrollbar(props: ScrollbarProps) {
+	if (!props.nonInterludeToAll || !props.allToNonInterlude) {
+		return null;
+	}
+	const scrollbarRef = useRef<HTMLDivElement>(null);
+	const thumbRef = useRef<HTMLDivElement>(null);
 
 	const currentLine = props.scrollingMode ? props.scrollingFocusLine : props.currentLine;
 	const totalSteps = props.nonInterludeToAll.length;
@@ -1312,25 +1422,27 @@ function Scrollbar(props) {
 
 	useEffect(() => {
 		const thumb = thumbRef.current;
+		if (!thumb || !scrollbarRef.current) return;
 		const heightOfTrack = props.containerHeight - thumbHeight;
 		const perStep = heightOfTrack / (totalSteps - 1);
 		let dragging = false;
-		let startX, startY, offsetX, offsetY, trackTopY;
-		const onMouseDown = (e) => {
+		let startX: number, startY: number, offsetX: number, offsetY: number, trackTopY: number;
+		const onMouseDown = (e: MouseEvent) => {
 			dragging = true;
 			thumb.classList.add('dragging');
 			thumb.style.transitionDuration = '0.2s';
+			// @ts-ignore
 			thumb.style.transltionTimingFunction = 'ease-out';
 			startX = e.clientX;
 			startY = e.clientY;
 			offsetX = e.offsetX;
 			offsetY = e.offsetY;
-			trackTopY = scrollbarRef.current.getBoundingClientRect().top;
+			trackTopY = scrollbarRef.current!.getBoundingClientRect().top;
 			document.addEventListener('mousemove', onMouseMove);
 			document.addEventListener('mouseup', onMouseUp);
 		}
-		let lastFocusLine = props.current;
-		const onMouseMove = (e) => {
+		let lastFocusLine = props.currentLine; // Typo in original code: props.current which is undefined on Scrollbar props
+		const onMouseMove = (e: MouseEvent) => {
 			if (!dragging) return;
 			const diffX = e.clientX - startX;
 			let y = e.clientY - trackTopY - offsetY;
@@ -1348,22 +1460,26 @@ function Scrollbar(props) {
 			//console.log(props.nonInterludeToAll[cloest]);
 			props.scrollingFocusOnLine(props.nonInterludeToAll[cloest]);
 		}
-		const onMouseUp = (e) => {
+		const onMouseUp = (e: MouseEvent) => {
 			dragging = false;
 			thumb.classList.remove('dragging');
 			thumb.style.transitionDuration = '';
 			//thumb.style.transform = `none`;
+			// @ts-ignore
 			thumb.style.transltionTimingFunction = '';
 			document.removeEventListener('mousemove', onMouseMove);
 			document.removeEventListener('mouseup', onMouseUp);
 			props.exitScrollingModeSoon();
 		}
+		// @ts-ignore
 		thumb.addEventListener('mousedown', onMouseDown);
 		return () => {
 			dragging = false;
 			thumb.classList.remove('dragging');
 			thumb.style.transitionDuration = '';
+			// @ts-ignore
 			thumb.style.transltionTimingFunction = '';
+			// @ts-ignore
 			thumb.removeEventListener('mousedown', onMouseDown);
 			document.removeEventListener('mousemove', onMouseMove);
 			document.removeEventListener('mouseup', onMouseUp);
@@ -1372,43 +1488,56 @@ function Scrollbar(props) {
 	}, [props.nonInterludeToAll, props.allToNonInterlude, props.containerHeight]);
 
 	return (
-		<div 
+		<div
 			className={`rnp-lyrics-scrollbar ${props.overviewMode ? 'overview-mode-hide' : ''}`}
 			ref={scrollbarRef}>
-			<div 
+			<div
 				className={`rnp-lyrics-scrollbar-thumb ${totalSteps > 1 ? '' : 'no-scroll'}`}
 				ref={thumbRef}
 				style={{
 					height: thumbHeight,
 					top: `${current * perStep}px`
-				}}/>
+				}} />
 			{/*<div>{ props.allToNonInterlude[currentLine] }</div>*/}
 		</div>
 	)
 }
 
-function LyricOverview(props) {
+interface LyricOverviewProps {
+	lyrics: LyricLine[] | null;
+	currentLine: number;
+	showRomaji: boolean;
+	showTranslation: boolean;
+	jumpToTime: (time: number) => void;
+	isUnsynced: boolean;
+	overviewContainerRef: React.RefObject<HTMLDivElement | null>;
+	setOverviewModeScrolling: (scrolling: boolean) => void;
+	exitOverviewModeScrollingSoon: (timeout?: number) => void;
+}
+
+function LyricOverview(props: LyricOverviewProps) {
 	useEffect(() => {
 		const container = props.overviewContainerRef.current;
+		if (!container) return;
 		let selecting = false;
 		const onWheel = () => {
 			props.setOverviewModeScrolling(true);
 			if (!selecting) props.exitOverviewModeScrollingSoon();
 		};
-		const onMouseDown = (e) => {
+		const onMouseDown = (e: MouseEvent) => {
 			if (e.button != 0) return;
-			const line = e.target.closest('.rnp-lyrics-overview-line');
+			const line = (e.target as HTMLElement).closest('.rnp-lyrics-overview-line');
 			if (!line) return;
 			selecting = true;
 			props.setOverviewModeScrolling(true);
 			document.addEventListener('mousemove', onMouseMove);
 			document.addEventListener('mouseup', onMouseUp);
 		};
-		const onMouseMove = (e) => {
+		const onMouseMove = (e: MouseEvent) => {
 			if (!selecting) return;
 			props.setOverviewModeScrolling(true);
 		};
-		const onMouseUp = (e) => {
+		const onMouseUp = (e: MouseEvent) => {
 			if (!selecting) return;
 			selecting = false;
 			props.setOverviewModeScrolling(true);
@@ -1434,14 +1563,17 @@ function LyricOverview(props) {
 						歌词暂不支持滚动
 					</div>
 				}
-				{props.lyrics.map((line, index) => {
-					return !(props.isUnsynced && index == 0) && <div 
+				{props.lyrics && props.lyrics.map((line, index) => {
+					// @ts-ignore
+					return !(props.isUnsynced && index == 0) && <div
 						key={index}
 						className={`
 							rnp-lyrics-overview-line
 							${index == props.currentLine ? 'current' : ''}
 							${index < props.currentLine ? 'passed' : ''}
-							${line.isInterlude ? 'interlude' : ''}
+							${
+							// @ts-ignore
+							line.isInterlude ? 'interlude' : ''}
 						`}
 						onContextMenu={(e) => {
 							e.preventDefault();
@@ -1449,9 +1581,10 @@ function LyricOverview(props) {
 							props.jumpToTime(line.time + 50);
 							props.exitOverviewModeScrollingSoon(0);
 						}}>
-							{ !line.isInterlude && <div className="rnp-lyrics-overview-line-original">{line.originalLyric}</div> }
-							{ line.romanLyric && props.showRomaji && <div className="rnp-lyrics-overview-line-romaji">{line.romanLyric}</div> }
-							{ line.translatedLyric && props.showTranslation && <div className="rnp-lyrics-overview-line-translation">{line.translatedLyric}</div> }
+						{/* @ts-ignore */}
+						{!line.isInterlude && <div className="rnp-lyrics-overview-line-original">{line.originalLyric}</div>}
+						{line.romanLyric && props.showRomaji && <div className="rnp-lyrics-overview-line-romaji">{line.romanLyric}</div>}
+						{line.translatedLyric && props.showTranslation && <div className="rnp-lyrics-overview-line-translation">{line.translatedLyric}</div>}
 					</div>
 				})}
 			</div>

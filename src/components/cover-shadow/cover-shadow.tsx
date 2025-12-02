@@ -1,6 +1,5 @@
 import { getSetting } from '../../utils/utils';
-const useState = React.useState;
-const useEffect = React.useEffect;
+import React, { useState, useEffect } from 'react';
 
 const getCoverType = () => {
 	const type = getSetting('cover-blurry-shadow', 'true');
@@ -11,9 +10,13 @@ const getCoverType = () => {
 	}
 };
 
-export function CoverShadow(props) {
+interface CoverShadowProps {
+	image: HTMLImageElement;
+}
+
+export function CoverShadow(props: CoverShadowProps) {
 	const [type, setType] = useState(getCoverType()); // black and colorful
-	const [rectangleCover, setRectangleCover] = useState(getSetting('rectangle-cover', true));
+	const [rectangleCover, setRectangleCover] = useState<boolean>(getSetting('rectangle-cover', true));
 	const [url, setUrl] = useState('');
 
 	const image = props.image;
@@ -48,11 +51,15 @@ export function CoverShadow(props) {
 	}, []);
 
 	useEffect(() => {
-		document.addEventListener('rnp-cover-shadow-type', (e) => {
+		const listener = (e: any) => {
 			setType(e.detail.type ?? 'colorful');
-		});
+		};
+		document.addEventListener('rnp-cover-shadow-type', listener);
+		return () => {
+			document.removeEventListener('rnp-cover-shadow-type', listener);
+		}
 	}, []);
-	
+
 	if (!url) return null;
 
 	if (type === 'black') {
@@ -76,17 +83,16 @@ export function CoverShadow(props) {
 					bottom: 0;
 					filter: saturate(1.3) brightness(1.2) blur(25px);
 					opacity: .6;
-					${
-						rectangleCover ?
-						`
+					${rectangleCover ?
+					`
 							border-radius: 16px;
 							transform: translateY(4%);
 						`
-						:
-						`
+					:
+					`
 							border-radius: 50%;
 						`
-					}
+				}
 				}
 				.n-single .cdwrap .cdimg{
 					box-shadow: none !important;
