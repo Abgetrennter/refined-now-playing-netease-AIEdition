@@ -1,5 +1,6 @@
 import './lyric-provider';
-import { getSetting, setSetting, copyTextToClipboard } from '../../utils/utils';
+import { getSetting, setSetting } from '../../modules/settings/storage';
+import { copyTextToClipboard } from '../../utils/dom';
 import { showContextMenu } from '../context-menu/context-menu';
 import './lyrics.scss';
 

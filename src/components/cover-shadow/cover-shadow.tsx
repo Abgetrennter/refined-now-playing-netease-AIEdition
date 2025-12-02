@@ -1,4 +1,4 @@
-import { getSetting } from '../../utils/utils';
+import { getSetting } from '../../modules/settings/storage';
 import React, { useState, useEffect } from 'react';
 
 const getCoverType = () => {

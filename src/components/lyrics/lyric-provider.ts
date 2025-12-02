@@ -2,7 +2,7 @@
 // Also provide a global variable `currentLyrics` for other scripts to use
 
 import { parseLyric, LyricLine } from '../../liblyric/index'
-import { cyrb53 } from '../../utils/utils'
+import { cyrb53 } from '../../utils/common'
 
 declare const betterncm: any;
 declare global {

@@ -1,5 +1,6 @@
 import './refined-control-bar.scss';
-import { waitForElement, getSetting, setSetting } from '../../utils/utils';
+import { waitForElement } from '../../utils/dom';
+import { getSetting, setSetting } from '../../modules/settings/storage';
 
 declare global {
     interface Window {

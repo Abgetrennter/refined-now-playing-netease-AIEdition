@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, MutableRefObject } from 'react';
 import './progressbar-preview.scss';
-import { getSetting } from '../../utils/utils';
+import { getSetting } from '../../modules/settings/storage';
 import { LyricLine, DynamicLyricWord } from '../../liblyric';
 
 declare const legacyNativeCmder: any;

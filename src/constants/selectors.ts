@@ -1,0 +1,17 @@
+export const SELECTORS = {
+    MAIN_PLAYER: '#main-player, .m-pinfo',
+    SINGLE_PAGE: '.g-single',
+    SINGLE_PAGE_PATCHED: '.g-single.patched',
+    CD_IMAGE: '.n-single .cdimg img',
+    CD_CONTAINER: '.n-single .cdimg',
+    TITLE_CONTAINER: '.g-single .g-singlec-ct .n-single .mn .head .inf .title',
+    TITLE_NAME: '.g-single .g-singlec-ct .n-single .mn .head .inf .title .name',
+    LYRICS_CONTAINER: '.g-single-track .g-singlec-ct .n-single .mn .lyric',
+    LYRICS_WRAPPER: '.g-single-track .g-singlec-ct .n-single .wrap',
+    MINI_INFO_CONTAINER: '.g-single .g-singlec-ct .n-single .mn .head .inf',
+    FM_PAGE: '#page_pc_userfm_songplay',
+    FM_COVERS: '#page_pc_userfm_songplay .fmplay .covers',
+    FM_PROGRESS_BAR: '.m-player-fm .prg',
+    MAIN_PROGRESS_BAR: '#main-player .prg',
+    FULL_SCREEN_BUTTON: '.rnp-full-screen-button',
+} as const;
