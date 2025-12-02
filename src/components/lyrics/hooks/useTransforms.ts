@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { LineTransform } from '../types';
 import { LyricLine } from '../../../liblyric';
 
@@ -9,11 +9,12 @@ export function useTransforms(
     currentLineForScrolling: number,
     scrollingMode: boolean,
     scrollingFocusLine: number,
-    shouldTransit: React.MutableRefObject<boolean>,
+    shouldTransit: React.RefObject<boolean>,
     styleProps: any,
     recalcCounter: number
 ) {
-    const [lineTransforms, setLineTransforms] = useState<LineTransform[]>([]);
+    // Use internal tick to force re-calculation when height changes
+    const [heightUpdateTick, setHeightUpdateTick] = useState(0);
     const heightOfItems = useRef<{ [key: number]: number }>({});
     const previousFocusedLineRef = useRef(0);
 
@@ -23,12 +24,7 @@ export function useTransforms(
     const reportHeight = useCallback((index: number, height: number) => {
 		if (heightOfItems.current[index] !== height) {
 			heightOfItems.current[index] = height;
-            // We need to trigger a transform recalc.
-            // This can be done by updating a state that useEffect depends on, or handling it internally if possible.
-            // In the original code, it updated `recalcCounter`.
-            // Since we can't easily update parent state from here without passing a setter, 
-            // we might need to expose a way to force update or rely on parent re-rendering.
-            // However, the original code used `setRecalcCounter` which was passed to `useEffect`.
+            setHeightUpdateTick(t => t + 1);
 		}
 	}, []);
 
@@ -52,9 +48,9 @@ export function useTransforms(
 	}, []);
 
 
-    useEffect(() => { // Recalculate vertical positions and transforms of each line
-		if (lyrics == null || lyrics == undefined) return;
-		if (!containerRef.current) return;
+    const lineTransforms = useMemo(() => { // Recalculate vertical positions and transforms of each line
+		if (lyrics == null || lyrics == undefined) return [];
+		if (!containerRef.current) return [];
 
         const {
             fontSize, lyricFade, lyricZoom, lyricBlur, lyricRotate, RotateCurvature,
@@ -207,15 +203,16 @@ export function useTransforms(
 			}
 		}
 
-		setLineTransforms(transforms);
-		previousFocusedLineRef.current = currentLineForScrolling;
+        previousFocusedLineRef.current = currentLineForScrolling;
+		return transforms;
 	}, [
 		currentLineForScrolling,
 		containerHeight, containerWidth,
 		styleProps,
 		scrollingMode, scrollingFocusLine,
 		recalcCounter,
-		lyrics
+		lyrics,
+        heightUpdateTick // Depend on height update tick
 	]);
 
     return {

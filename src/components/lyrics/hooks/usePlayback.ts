@@ -10,17 +10,17 @@ declare const loadedPlugins: any;
 
 export function usePlayback(
     isFM: boolean, 
-    _lyrics: React.MutableRefObject<LyricLine[] | null>, 
-    shouldTransit: React.MutableRefObject<boolean>,
+    _lyrics: React.RefObject<LyricLine[] | null>, 
+    shouldTransit: React.RefObject<boolean>,
     lyricStagger: boolean,
     setScrollingMode: (mode: boolean) => void,
-    _scrollingMode: React.MutableRefObject<boolean>,
+    _scrollingMode: React.RefObject<boolean>,
     setScrollingFocusLine: (line: number) => void,
-    _scrollingFocusLine: React.MutableRefObject<number>,
+    _scrollingFocusLine: React.RefObject<number>,
     setCurrentLine: (line: number) => void,
     setCurrentLineForScrolling: (line: number) => void,
-    _currentLine: React.MutableRefObject<number>,
-    _playState: React.MutableRefObject<boolean>
+    _currentLine: React.RefObject<number>,
+    _playState: React.RefObject<boolean>
 ) {
     const getPlayState = () => {
 		if (!isFM) {

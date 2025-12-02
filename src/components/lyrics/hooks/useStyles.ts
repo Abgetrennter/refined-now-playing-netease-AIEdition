@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getSetting } from '../../../modules/settings/storage';
 
-export const useRefState = <T,>(initialValue: T): [T, React.Dispatch<React.SetStateAction<T>>, React.MutableRefObject<T>] => {
+export const useRefState = <T,>(initialValue: T): [T, React.Dispatch<React.SetStateAction<T>>, React.RefObject<T>] => {
     const [value, setValue] = useState(initialValue);
     const ref = React.useRef(value);
     useEffect(() => {
