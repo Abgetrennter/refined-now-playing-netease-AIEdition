@@ -128,8 +128,12 @@ export const fragmentShaderSource = `
     }
 `;
 
-export function createShader(gl, type, source) {
+export function createShader(gl: WebGLRenderingContext, type: number, source: string): WebGLShader | undefined {
     const shader = gl.createShader(type);
+    if (!shader) {
+        console.error('Failed to create shader');
+        return undefined;
+    }
     gl.shaderSource(shader, source);
     gl.compileShader(shader);
     const success = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
@@ -138,10 +142,15 @@ export function createShader(gl, type, source) {
     }
     console.error('Shader compilation failed:', gl.getShaderInfoLog(shader));
     gl.deleteShader(shader);
+    return undefined;
 }
 
-export function createProgram(gl, vertexShader, fragmentShader) {
+export function createProgram(gl: WebGLRenderingContext, vertexShader: WebGLShader, fragmentShader: WebGLShader): WebGLProgram | undefined {
     const program = gl.createProgram();
+    if (!program) {
+        console.error('Failed to create program');
+        return undefined;
+    }
     gl.attachShader(program, vertexShader);
     gl.attachShader(program, fragmentShader);
     gl.linkProgram(program);
@@ -151,9 +160,10 @@ export function createProgram(gl, vertexShader, fragmentShader) {
     }
     console.error('Program linking failed:', gl.getProgramInfoLog(program));
     gl.deleteProgram(program);
+    return undefined;
 }
 
-export function createTexture(gl, image) {
+export function createTexture(gl: WebGLRenderingContext, image: HTMLImageElement): WebGLTexture | null {
     const texture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, texture);
     

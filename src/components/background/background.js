@@ -1,5 +1,5 @@
 import './background.scss';
-import { getGradientFromPalette } from '../../utils/color-utils.js';
+import { getGradientFromPalette } from '../../utils/color-utils';
 import ColorThief from 'colorthief';
 
 const useState = React.useState;
@@ -127,7 +127,7 @@ function GradientBackground(props) {
 	);
 }
 
-import { createShader, createProgram, createTexture, vertexShaderSource, fragmentShaderSource } from '../../utils/webgl-utils.js';
+import { createShader, createProgram, createTexture, vertexShaderSource, fragmentShaderSource } from '../../utils/webgl-utils';
 
 function FluidBackground(props) {
 	const canvasRef = useRef(null);

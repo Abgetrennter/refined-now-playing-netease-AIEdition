@@ -1,17 +1,49 @@
 import './compatibility-check.scss';
 import { compareVersions } from 'compare-versions';
+import React, { useState, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 
-const useState = React.useState;
-const useEffect = React.useEffect;
-const useRef = React.useRef;
+declare const betterncm: any;
+declare const betterncm_native: any;
+declare const channel: any;
 
-function Wizard(props) {
+interface ButtonProps {
+	text: string;
+	clickedText?: string;
+	disabledAfterDone?: boolean;
+	disabled?: boolean;
+	onClick: () => void | Promise<void>;
+}
+
+function Button(props: ButtonProps) {
+	const [clicked, setClicked] = useState(false);
+	const [disabled, setDisabled] = useState(false);
+	return (
+		<button
+			className="action-button"
+			disabled={disabled || props.disabled}
+			onClick={async () => {
+				if (disabled) return;
+				setDisabled(true);
+				await props.onClick();
+				setClicked(true);
+				if (!(props.disabledAfterDone ?? true)) {
+					setDisabled(false);
+				}
+			}}
+		>
+			{clicked ? (props.clickedText ?? props.text) : props.text}
+		</button>
+	)
+}
+
+function Wizard() {
 	const [isNCMOutdated, setIsNCMOutdated] = useState(false);
 	const [isBetterNCMOutdated, setIsBetterNCMOutdated] = useState(false);
 	const [isGPUDisabled, setIsGPUDisabled] = useState(false);
 	const [isHijackDisabled, setIsHijackDisabled] = useState(false);
 
-	useEffect(async () => {
+	useEffect(() => {
 		try {
 			if (compareVersions(betterncm.ncm.getNCMVersion(), "2.10.6") < 0) {
 				setIsNCMOutdated(true);
@@ -20,13 +52,13 @@ function Wizard(props) {
 		}
 	}, []);
 
-	useEffect(async () => {
+	useEffect(() => {
 		try {
 			if (
-				typeof(betterncm_native) == "undefined" ||
-				typeof(betterncm.app.writeConfig) == "undefined" ||
-				typeof(betterncm.app.readConfig) == "undefined" ||
-				typeof(betterncm_native.app.reloadIgnoreCache) == "undefined"
+				typeof (betterncm_native) == "undefined" ||
+				typeof (betterncm.app.writeConfig) == "undefined" ||
+				typeof (betterncm.app.readConfig) == "undefined" ||
+				typeof (betterncm_native.app.reloadIgnoreCache) == "undefined"
 			) {
 				setIsBetterNCMOutdated(true);
 			}
@@ -35,39 +67,45 @@ function Wizard(props) {
 		}
 	}, []);
 
-	useEffect(async () => {
-		if (typeof(betterncm.app.readConfig) == "undefined") return;
-		try {
-			if (
-				await betterncm.app.readConfig("cc.microblock.betterncm.remove-disable-gpu") != "true" &&
-				await new Promise((resolve, reject) => {
-					channel.call(
-						"app.getLocalConfig", 
-						(GpuAccelerationEnabled) => {
-							if (!~~GpuAccelerationEnabled) {
-								resolve(true);
-							} else {
-								resolve(false);
-							}
-						}, 
-						["setting", "hardware-acceleration"]
-					);
-				})
+	useEffect(() => {
+		const checkGPU = async () => {
+			if (typeof (betterncm.app.readConfig) == "undefined") return;
+			try {
+				if (
+					await betterncm.app.readConfig("cc.microblock.betterncm.remove-disable-gpu") != "true" &&
+					await new Promise((resolve, reject) => {
+						channel.call(
+							"app.getLocalConfig",
+							(GpuAccelerationEnabled: any) => {
+								if (!~~GpuAccelerationEnabled) {
+									resolve(true);
+								} else {
+									resolve(false);
+								}
+							},
+							["setting", "hardware-acceleration"]
+						);
+					})
 
-			) {
-				setIsGPUDisabled(true);
+				) {
+					setIsGPUDisabled(true);
+				}
+			} catch (e) {
 			}
-		} catch (e) {
-		}
+		};
+		checkGPU();
 	}, []);
 
-	useEffect(async () => {
-		if (typeof(betterncm.app.readConfig) == "undefined") return;
-		try {
-			if (await betterncm.app.readConfig("cc.microblock.betterncm.cpp_side_inject_feature_disabled") == "true")
-				setIsHijackDisabled(true);
-		} catch (e) {
-		}
+	useEffect(() => {
+		const checkHijack = async () => {
+			if (typeof (betterncm.app.readConfig) == "undefined") return;
+			try {
+				if (await betterncm.app.readConfig("cc.microblock.betterncm.cpp_side_inject_feature_disabled") == "true")
+					setIsHijackDisabled(true);
+			} catch (e) {
+			}
+		};
+		checkHijack();
 	}, []);
 
 	useEffect(() => {
@@ -76,26 +114,26 @@ function Wizard(props) {
 		}
 		localStorage.setItem("refined-now-playing-wizard-done", "true");
 	}, [isNCMOutdated, isBetterNCMOutdated, isGPUDisabled, isHijackDisabled]);
-	
+
 
 
 	return (
-		<div class="rnp-compatibility-check">
-			<div class="rnp-compatibility-check__title">
+		<div className="rnp-compatibility-check">
+			<div className="rnp-compatibility-check__title">
 				<h2>兼容性检查</h2>
 				<h3>Refined Now Playing</h3>
 			</div>
-			<div class="rnp-compatibility-check__content">
+			<div className="rnp-compatibility-check__content">
 				<p>欢迎使用 Refined Now Playing。</p>
 				<p>在开始之前，请依照本提示检查和更正兼容性问题，否则可能会遇到渲染错误、性能降低、功能失效等问题。</p>
-				{isNCMOutdated && 
+				{isNCMOutdated &&
 					<>
 						<h1>网易云版本</h1>
 						<p>Refined Now Playing 需要 2.10.6 及以上版本的网易云才能正常工作。</p>
 						<p className="warning">检测到您的网易云版本过旧，将会导致 Refined Now Playing 无法正常工作。请更新网易云。</p>
-						<Button text="下载新版网易云" disabledAfterDone={false} onClick={async() => {
+						<Button text="下载新版网易云" disabledAfterDone={false} onClick={async () => {
 							await betterncm.app.exec("https://music.163.com/#/download");
-						}}/>
+						}} />
 					</>
 				}
 				<h1>BetterNCM 版本</h1>
@@ -103,9 +141,9 @@ function Wizard(props) {
 				<p>目前推荐使用最新稳定版。如果版本过旧，请在 BetterNCM Installer 中，点击 “重装/更新” 以更新最新版。</p>
 				{isBetterNCMOutdated && <p className="warning">检测到您的 BetterNCM 版本过旧，可能会导致 Refined Now Playing 无法正常工作。请更新 BetterNCM。</p>}
 				{!isBetterNCMOutdated && <p className="pass">检测到您的 BetterNCM 版本没有过旧。但如果仍然出现问题，请尝试更新 BetterNCM。</p>}
-				<Button text="下载 BetterNCM Installer" disabledAfterDone={false} onClick={async() => {
+				<Button text="下载 BetterNCM Installer" disabledAfterDone={false} onClick={async () => {
 					await betterncm.app.exec("https://github.com/MicroCBer/BetterNCM-Installer/releases");
-				}}/>
+				}} />
 				<h1>GPU 加速</h1>
 				<p>如果 GPU 加速被禁用，可能会导致：卡顿、模糊背景渲染错误、帧数低、CPU 占用高等问题。</p>
 				{
@@ -139,7 +177,7 @@ function Wizard(props) {
 					!isHijackDisabled && (
 						<Button text="清空 Hijack 缓存" disabledAfterDone={true} onClick={async () => {
 							betterncm_native.app.reloadIgnoreCache();
-						}}/>
+						}} />
 					)
 				}
 				<h1>性能</h1>
@@ -184,42 +222,19 @@ function Wizard(props) {
 					完成并不再提示
 				</button>
 				{
-					(isNCMOutdated || isBetterNCMOutdated || isGPUDisabled || isHijackDisabled) && 
+					(isNCMOutdated || isBetterNCMOutdated || isGPUDisabled || isHijackDisabled) &&
 					<>
 						<Button text="跳过" disabledAfterDone={true} onClick={() => {
-							document.querySelector("#refined-now-playing-wizard").remove();
-						}}/>
+							document.querySelector("#refined-now-playing-wizard")?.remove();
+						}} />
 						<Button text="跳过并不再提示" disabledAfterDone={true} onClick={() => {
 							localStorage.setItem("refined-now-playing-wizard-done", "true");
-							document.querySelector("#refined-now-playing-wizard").remove();
-						}}/>
+							document.querySelector("#refined-now-playing-wizard")?.remove();
+						}} />
 					</>
 				}
 			</div>
 		</div>
-	)
-}
-
-function Button(props) {
-	const [clicked, setClicked] = useState(false);
-	const [disabled, setDisabled] = useState(false);
-	return (
-		<button
-			class="action-button"
-			disabled={disabled || props.disabled}
-			onClick={async () => {
-				if (disabled) return;
-				setDisabled(true);
-				props.onClick();
-				setClicked(true);
-				if (!(props.disabledAfterDone ?? true)) {
-					setDisabled(false);
-				}
-
-			}}
-		>
-			{ clicked ? (props.clickedText ?? props.text) : props.text }
-		</button>
 	)
 }
 
@@ -232,7 +247,9 @@ export function compatibilityWizard(force = false) {
 	const wizard = document.createElement("div");
 	wizard.id = "refined-now-playing-wizard";
 	document.body.appendChild(wizard);
-	ReactDOM.render(<Wizard />, wizard);
+	// @ts-ignore
+	const root = ReactDOM.createRoot(wizard);
+	root.render(<Wizard />);
 }
 
 function HijackFailureNotice() {
@@ -259,12 +276,14 @@ function HijackFailureNotice() {
 
 
 export async function hijackFailureNoticeCheck() {
-	if ((await betterncm.app.getSucceededHijacks()).filter(x => x.includes('RefinedNowPlaying')).length > 0) {
+	if ((await betterncm.app.getSucceededHijacks()).filter((x: string) => x.includes('RefinedNowPlaying')).length > 0) {
 		return;
 	}
 
 	const notice = document.createElement("div");
 	notice.id = "refined-now-playing-hijack-failure-notice";
 	document.body.appendChild(notice);
-	ReactDOM.render(<HijackFailureNotice />, notice);
+	// @ts-ignore
+	const root = ReactDOM.createRoot(notice);
+	root.render(<HijackFailureNotice />);
 }

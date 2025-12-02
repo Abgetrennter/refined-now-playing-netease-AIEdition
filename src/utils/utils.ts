@@ -1,45 +1,58 @@
-export const waitForElement = (selector, fun) => {
-	selector = selector.split(',');
+declare const betterncm: any;
+
+export const waitForElement = (selector: string, fun: (element: Element) => void): void => {
+	const selectors = selector.split(',');
 	let done = true;
-	for (const s of selector) {
+	for (const s of selectors) {
 		if (!document.querySelector(s)) {
 			done = false;
 		}
 	}
 	if (done) {
-		for (const s of selector) {
-			fun.call(this, document.querySelector(s));
+		for (const s of selectors) {
+			const el = document.querySelector(s);
+			if (el) fun.call(this, el);
 		}
 		return;
 	}
 	let interval = setInterval(() => {
 		let done = true;
-		for (const s of selector) {
+		for (const s of selectors) {
 			if (!document.querySelector(s)) {
 				done = false;
 			}
 		}
 		if (done) {
 			clearInterval(interval);
-			for (const s of selector) {
-				fun.call(this, document.querySelector(s));
+			for (const s of selectors) {
+				const el = document.querySelector(s);
+				if (el) fun.call(this, el);
 			}
 		}
 	}, 100);
 }
-export const waitForElementAsync = async (selector) => {
+
+export const waitForElementAsync = async (selector: string): Promise<Element | null> => {
 	if (document.querySelector(selector)) {
 		return document.querySelector(selector);
 	}
-	return await betterncm.utils.waitForElement(selector);
+	// Assuming betterncm is available in the global scope
+	if (typeof betterncm !== 'undefined') {
+		return await betterncm.utils.waitForElement(selector);
+	}
+	// Fallback or throw error if betterncm is not defined
+	return new Promise((resolve) => {
+		waitForElement(selector, (el) => resolve(el));
+	});
 }
-export const getSetting = (option, defaultValue = '') => {
+
+export const getSetting = <T = string | boolean>(option: string, defaultValue: string | boolean = ''): T => {
 	if (option.endsWith('-fm')) {
 		option = option.replace(/-fm$/, '');
 	}
 	option = "refined-now-playing-" + option;
-	let value = localStorage.getItem(option);
-	if (!value) {
+	let value: string | boolean | null = localStorage.getItem(option);
+	if (value === null) {
 		value = defaultValue;
 	}
 	if (value === 'true') {
@@ -47,20 +60,23 @@ export const getSetting = (option, defaultValue = '') => {
 	} else if (value === 'false') {
 		value = false;
 	}
-	return value;
+	return value as T;
 }
-export const setSetting = (option, value) => {
+
+export const setSetting = (option: string, value: string | boolean | number): void => {
 	option = "refined-now-playing-" + option;
-	localStorage.setItem(option, value);
+	localStorage.setItem(option, String(value));
 }
-export const chunk = (input, size) => {
-	return input.reduce((arr, item, idx) => {
+
+export const chunk = <T>(input: T[], size: number): T[][] => {
+	return input.reduce((arr: T[][], item: T, idx: number) => {
 		return idx % size === 0
 			? [...arr, [item]]
 			: [...arr.slice(0, -1), [...arr.slice(-1)[0], item]];
 	}, []);
 };
-export const copyTextToClipboard = (text) => {
+
+export const copyTextToClipboard = (text: string): void => {
 	const textarea = document.createElement('textarea');
 	textarea.style.position = 'fixed';
 	textarea.style.top = '0';
@@ -73,7 +89,8 @@ export const copyTextToClipboard = (text) => {
 	document.execCommand('copy', true);
 	document.body.removeChild(textarea);
 }
-export const cyrb53 = (str, seed = 0) => {
+
+export const cyrb53 = (str: string, seed: number = 0): number => {
 	let h1 = 0xdeadbeef ^ seed,
 		h2 = 0x41c6ce57 ^ seed;
 	for (let i = 0, ch; i < str.length; i++) {

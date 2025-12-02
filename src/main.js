@@ -4,8 +4,8 @@ import './styles/FM.scss'
 import './styles/experimental.scss';
 import settingsMenuHTML from './components/settings/settings-menu.html';
 import './components/settings/settings-menu.scss';
-import { argb2Rgb, rgb2Argb } from './utils/color-utils.js';
-import { waitForElement, waitForElementAsync, getSetting, setSetting, chunk, copyTextToClipboard } from './utils/utils.js';
+import { argb2Rgb, rgb2Argb } from './utils/color-utils';
+import { waitForElement, waitForElementAsync, getSetting, setSetting, chunk, copyTextToClipboard } from './utils/utils';
 import './components/control-bar/refined-control-bar.js';
 import { Background } from './components/background/background.js';
 import { CoverShadow } from './components/cover-shadow/cover-shadow.js';
