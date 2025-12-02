@@ -7,7 +7,6 @@ declare global {
         timeIndicator: string;
     }
 }
-
 const injectHTML = (type: string, html: string, parent: HTMLElement, fun: (dom: HTMLElement) => void = (dom) => {}) => {
 	const dom = document.createElement(type);
 	dom.innerHTML = html;

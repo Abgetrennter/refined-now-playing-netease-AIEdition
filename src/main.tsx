@@ -31,10 +31,6 @@ declare global {
         accentColorVariant: string;
         mdThemeType: 'dark' | 'light';
     }
-    var loadedPlugins: any;
-    var betterncm: any;
-    var plugin: any;
-    function dom(tag: string, props: any, ...children: any[]): HTMLElement;
 }
 
 // 全局错误处理
@@ -103,7 +99,8 @@ const calcAccentColor = (dom: HTMLImageElement, isFM: boolean = false) => {
     if (!ctx) return;
     
     ctx.drawImage(dom, 0, 0, dom.naturalWidth, dom.naturalHeight, 0, 0, 50, 50);
-    const pixels = chunk(ctx.getImageData(0, 0, 50, 50).data, 4).map((pixel: any) => {
+    const imageData = ctx.getImageData(0, 0, 50, 50).data;
+    const pixels = chunk(Array.from(imageData), 4).map((pixel: any) => {
         return ((pixel[3] << 24 >>> 0) | (pixel[0] << 16 >>> 0) | (pixel[1] << 8 >>> 0) | pixel[2]) >>> 0;
     });
     const quantizedColors = QuantizerCelebi.quantize(pixels, 128);
@@ -481,7 +478,7 @@ const addSettingsMenu = async (isFM: boolean = false) => {
                 callback(value);
             });
         });
-        const value = getSetting(selectGroup.id, defaultValue);
+        const value = getSetting<string>(selectGroup.id, defaultValue);
         buttons.forEach(button => {
             if (button.getAttribute("value") === value) {
                 button.classList.add("selected");
@@ -961,7 +958,7 @@ plugin.onLoad(async (p: any) => {
                 const addCopySelectionToItems = (items: ContextMenuItem[], closetSelector: string) => {
                     try {
                         const selection = window.getSelection();
-                        if (selection && selection.toString().trim() && selection.baseNode?.parentElement?.closest(closetSelector)) {
+                        if (selection && selection.toString().trim() && (selection as any).baseNode?.parentElement?.closest(closetSelector)) {
                             const selectedText = selection.toString().trim();												
                             items.unshift({
                                 label: '复制',

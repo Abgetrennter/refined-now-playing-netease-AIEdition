@@ -47,7 +47,7 @@ export function FontSettings() {
 	}, [fontFamily]);
 
 	return (
-		<>
+		<React.Fragment>
 			<ThemeProvider theme={darkTheme}>
 				<Autocomplete
 					multiple
@@ -80,7 +80,7 @@ export function FontSettings() {
 			<FontPreset fonts={['PingFang SC', '苹方 常规']} name="苹方" url="https://github.com/ShmilyHTT/PingFang/archive/refs/heads/master.zip" setFontFamily={setFontFamily} fontList={fontList} />
 			<FontPreset fonts={['Microsoft YaHei UI', 'Microsoft YaHei']} name="微软雅黑" url="" setFontFamily={setFontFamily} fontList={fontList} />
 			<FontPreset fonts={['Microsoft JhengHei UI', 'Microsoft JhengHei']} name="微软正黑" url="" setFontFamily={setFontFamily} fontList={fontList} />
-		</>
+		</React.Fragment>
 	);
 }
 

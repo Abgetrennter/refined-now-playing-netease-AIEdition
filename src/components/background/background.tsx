@@ -158,7 +158,7 @@ function GradientBackground(props: GradientBackgroundProps) {
 interface FluidBackgroundProps {
 	url: string;
 	static?: boolean;
-	isFM: boolean;
+	isFM?: boolean;
 	forceAnimate?: boolean;
 }
 
