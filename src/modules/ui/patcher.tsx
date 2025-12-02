@@ -2,23 +2,34 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import { waitForElement, waitForElementAsync, copyTextToClipboard } from '../../utils/dom';
 import { showContextMenu, ContextMenuItem } from '../../components/context-menu/context-menu';
-import { Background } from '../../components/background/background';
-import { CoverShadow } from '../../components/cover-shadow/cover-shadow';
-import { Lyrics } from '../../components/lyrics/lyrics';
-import { MiniSongInfo } from '../../components/mini-song-info/mini-song-info';
 import { updateCDImage, calcAccentColor } from '../theme';
 import { addSettingsMenu } from '../settings/ui';
 import { addFullScreenButton } from './fullscreen';
 import { whatsNew } from '../../components/whats-new/whats-new';
 import { getSetting } from '../settings/storage';
-import { recalculateTitleSize, calcTitleScroll } from './layout';
+import { App } from '../../App';
+import { mountStore } from '../../core/mount-store';
 
 declare const betterncm: any;
+
+let appMounted = false;
+const initApp = () => {
+    if (appMounted) return;
+    const root = document.createElement('div');
+    root.id = 'rnp-app-root';
+    document.body.appendChild(root);
+    // @ts-ignore
+    ReactDOM.render(<App />, root);
+    appMounted = true;
+}
 
 export const patchNowPlaying = () => {
     new MutationObserver(async () => { // Now playing page
         if (document.querySelector('.g-single:not(.patched)')) {
             document.querySelector('.g-single')?.classList.add('patched');
+            
+            initApp();
+
             waitForElement('.n-single .cdimg img', (dom: HTMLElement) => {
                 if (!dom) {
                     console.error('Refined Now Playing: .n-single .cdimg img not found in callback');
@@ -127,19 +138,12 @@ export const patchNowPlaying = () => {
             const background = document.createElement('div');
             background.classList.add('rnp-bg');
             const bgImg = await waitForElementAsync('.n-single .cdimg img');
-            // @ts-ignore
-            ReactDOM.render(
-                <Background
-                    type={getSetting('background-type', 'fluid')}
-                    image={ bgImg as HTMLImageElement }
-                />
-            , background);
+            mountStore.set('background', background, { image: bgImg });
             document.querySelector('.g-single')?.appendChild(background);
 
             const coverShadowController = document.createElement('div');
             coverShadowController.classList.add('rnp-cover-shadow-controller');
-            // @ts-ignore
-            ReactDOM.render(<CoverShadow image={ await waitForElementAsync('.n-single .cdimg img') as HTMLImageElement }/>, coverShadowController);
+            mountStore.set('coverShadow', coverShadowController, { image: await waitForElementAsync('.n-single .cdimg img') });
             document.body.appendChild(coverShadowController);
 
 
@@ -149,8 +153,7 @@ export const patchNowPlaying = () => {
             });
             const lyrics = document.createElement('div');
             lyrics.classList.add('lyric');
-            // @ts-ignore
-            ReactDOM.render(<Lyrics />, lyrics);
+            mountStore.set('lyrics', lyrics);
             waitForElement('.g-single-track .g-singlec-ct .n-single .wrap', (dom: HTMLElement) => {
                 dom.appendChild(lyrics);
             });
@@ -158,13 +161,10 @@ export const patchNowPlaying = () => {
             const miniSongInfo = document.createElement('div');
             miniSongInfo.classList.add('rnp-mini-song-info');
             setTimeout(async () => {
-                // @ts-ignore
-                ReactDOM.render(
-                    <MiniSongInfo
-                        image={ await waitForElementAsync('.n-single .cdimg img') as HTMLImageElement }
-                        infContainer={ await waitForElementAsync('.g-single .g-singlec-ct .n-single .mn .head .inf') as HTMLElement }
-                    />
-                , miniSongInfo);
+                mountStore.set('miniSongInfo', miniSongInfo, {
+                    image: await waitForElementAsync('.n-single .cdimg img'),
+                    infContainer: await waitForElementAsync('.g-single .g-singlec-ct .n-single .mn .head .inf')
+                });
                 document.querySelector('.g-single')?.appendChild(miniSongInfo);
             }, 0);
 
@@ -182,11 +182,13 @@ export const patchFM = async () => {
             document.querySelector('#page_pc_userfm_songplay')?.classList.add('patched');
             FMObserver.disconnect();
             
+            initApp();
+
             const lyrics = document.createElement('div');
             lyrics.classList.add('lyric');
             document.querySelector('#page_pc_userfm_songplay')?.appendChild(lyrics);
-            // @ts-ignore
-            ReactDOM.render(<Lyrics isFM={true}/>, lyrics);
+            mountStore.set('fmLyrics', lyrics);
+            
             for (let i = 0; i < 15; i++) {
                 setTimeout(() => {
                     window.dispatchEvent(new Event('resize'));
@@ -195,20 +197,13 @@ export const patchFM = async () => {
 
             const background = document.createElement('div');
             background.classList.add('rnp-bg', 'fm-bg');
-            // @ts-ignore
-            ReactDOM.render(
-                <Background
-                    type={getSetting('background-type', 'fluid')}
-                    image={
-                        await waitForElementAsync('#page_pc_userfm_songplay .fmplay .covers') as HTMLElement
-                    }
-                    isFM={true}
-                    imageChangedCallback={(dom: any) => {
-                        if (!dom) return;
-                        calcAccentColor(dom, true);
-                    }}
-                />
-            , background);
+            mountStore.set('fmBackground', background, {
+                image: await waitForElementAsync('#page_pc_userfm_songplay .fmplay .covers'),
+                imageChangedCallback: (dom: any) => {
+                    if (!dom) return;
+                    calcAccentColor(dom, true);
+                }
+            });
             document.querySelector('#page_pc_userfm_songplay')?.appendChild(background);
             addSettingsMenu(true);
         }

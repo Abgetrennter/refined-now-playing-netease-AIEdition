@@ -22,18 +22,8 @@ export interface LineProps {
 	line: LyricLine;
 	currentLine: number;
 	currentTime: number;
-	seekCounter: number;
-	playState: boolean;
-	showTranslation: boolean;
-	showRomaji: boolean;
-	useKaraokeLyrics: boolean;
-	jumpToTime: (time: number) => void;
 	transforms: LineTransform;
-	karaokeAnimation: string;
 	outOfRangeScrolling: boolean;
-	outOfRangeKaraoke: boolean;
-	lyricGlow: boolean;
-	reportHeight: (index: number, height: number) => void;
 }
 
 export interface InterludeProps {
@@ -41,8 +31,6 @@ export interface InterludeProps {
 	line: LyricLine;
 	currentLine: number;
 	currentTime: number;
-	seekCounter: number;
-	playState: boolean;
 }
 
 export interface ContributorsProps {

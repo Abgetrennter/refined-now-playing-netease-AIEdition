@@ -3,9 +3,11 @@ import { LineProps, InterludeProps } from './types';
 import { DynamicLyricWord } from '../../liblyric';
 import { copyTextToClipboard } from '../../utils/dom';
 import { showContextMenu } from '../context-menu/context-menu';
+import { useLyricsContext } from './LyricsContext';
 
 function Interlude(props: InterludeProps) {
 	const dotContainerRef = useRef<HTMLDivElement>(null);
+    const { seekCounter, playState } = useLyricsContext();
 
 	const dotCount = 3;
 	const perDotTime = parseInt(String(props.line.duration / dotCount));
@@ -24,7 +26,7 @@ function Interlude(props: InterludeProps) {
 				transitionDelay: `0ms`,
 			};
 		}
-		if (props.playState == false && dot.time + dot.duration - props.currentTime > 0) {
+		if (playState == false && dot.time + dot.duration - props.currentTime > 0) {
 			return {
 				transitionDuration: `0s`,
 				transitionDelay: `0ms`,
@@ -46,7 +48,7 @@ function Interlude(props: InterludeProps) {
 		setTimeout(() => {
 			dotContainerRef.current?.classList?.remove('force-refresh');
 		}, 6);
-	}, [props.seekCounter]);
+	}, [seekCounter]);
 
 	return (
 		<div className="rnp-interlude-inner" ref={dotContainerRef}>
@@ -61,7 +63,18 @@ function Interlude(props: InterludeProps) {
 	)
 }
 
-const LineContent = React.memo((props: LineProps & { lineRef: React.RefObject<HTMLDivElement | null> }) => {
+const LineContent = React.memo((props: LineProps & { lineRef: React.RefObject<HTMLDivElement | null>; outOfRangeKaraoke: boolean }) => {
+    const {
+        playState,
+        showTranslation,
+        showRomaji,
+        useKaraokeLyrics,
+        karaokeAnimation,
+        lyricGlow,
+        jumpToTime,
+        seekCounter
+    } = useLyricsContext();
+
 	if (props.line.originalLyric == '') {
 		// @ts-ignore
 		props.line.isInterlude = true;
@@ -74,7 +87,7 @@ const LineContent = React.memo((props: LineProps & { lineRef: React.RefObject<HT
 				transitionDelay: `0ms`,
 			};
 		}
-		if (props.playState == false && word.time + word.duration - props.currentTime > 0) {
+		if (playState == false && word.time + word.duration - props.currentTime > 0) {
 			return {
 				transitionDuration: `0s`,
 				transitionDelay: `0ms`,
@@ -94,7 +107,7 @@ const LineContent = React.memo((props: LineProps & { lineRef: React.RefObject<HT
 				transitionDelay: `0ms`,
 			};
 		}
-		if (props.playState == false && word.time + word.duration - props.currentTime > 0) {
+		if (playState == false && word.time + word.duration - props.currentTime > 0) {
 			return {
 				transitionDuration: `0s, 0s, 0.5s`,
 				transitionDelay: `0ms`,
@@ -108,9 +121,9 @@ const LineContent = React.memo((props: LineProps & { lineRef: React.RefObject<HT
 		};
 	};
 	const getKaraokeAnimation = (word: DynamicLyricWord) => {
-		if (props.karaokeAnimation == 'float') {
+		if (karaokeAnimation == 'float') {
 			return karaokeAnimationFloat(word);
-		} else if (props.karaokeAnimation == 'slide') {
+		} else if (karaokeAnimation == 'slide') {
 			return karaokeAnimationSlide(word);
 		}
 	};
@@ -124,12 +137,12 @@ const LineContent = React.memo((props: LineProps & { lineRef: React.RefObject<HT
 			if (!karaokeLineRef.current) return;
 			karaokeLineRef.current.classList.remove('force-refresh');
 		}, 6);
-	}, [props.useKaraokeLyrics, props.seekCounter, props.karaokeAnimation]);
+	}, [useKaraokeLyrics, seekCounter, karaokeAnimation]);
 
 
 	const glowAnimationsRef = useRef<any[]>([]);
 	useEffect(() => {
-		if (!props.lyricGlow) return;
+		if (!lyricGlow) return;
 
 		if (!props.line?.dynamicLyric) return;
 
@@ -191,7 +204,7 @@ const LineContent = React.memo((props: LineProps & { lineRef: React.RefObject<HT
 			}
 			glowAnimationsRef.current = [];
 		};
-	}, [props.line, props.useKaraokeLyrics, props.outOfRangeKaraoke, props.karaokeAnimation, props.lyricGlow]);
+	}, [props.line, useKaraokeLyrics, props.outOfRangeKaraoke, karaokeAnimation, lyricGlow]);
 
 	// update glow animation
 	useEffect(() => {
@@ -213,7 +226,7 @@ const LineContent = React.memo((props: LineProps & { lineRef: React.RefObject<HT
 				}
 				continue;
 			}
-			if (props.playState == false) {
+			if (playState == false) {
 				animation.pause();
 				//console.log(animation.currentTime);
 				animation.currentTime = props.currentTime - timing.wordTime;
@@ -225,7 +238,7 @@ const LineContent = React.memo((props: LineProps & { lineRef: React.RefObject<HT
 			//console.log(props.currentTime, timing.wordTime, props.currentTime - timing.wordTime);
 		}
 
-	}, [props.currentLine, props.useKaraokeLyrics, props.seekCounter, props.karaokeAnimation, props.playState, props.lyricGlow]);
+	}, [props.currentLine, useKaraokeLyrics, seekCounter, karaokeAnimation, playState, lyricGlow]);
 
 
 	return (
@@ -235,14 +248,14 @@ const LineContent = React.memo((props: LineProps & { lineRef: React.RefObject<HT
 			className={`rnp-lyrics-line ${offset < 0 ? 'passed' : ''} ${props.line.isInterlude ? 'rnp-interlude' : ''}`}
 			// @ts-ignore
 			offset={offset}
-			onClick={() => props.jumpToTime(props.line.time + 50)}
+			onClick={() => jumpToTime(props.line.time + 50)}
 			onContextMenu={(e) => {
 				e.preventDefault();
 				// @ts-ignore
 				if (props.line.isInterlude || !props.line.originalLyric) return;
 				let all = props.line.originalLyric;
-				if (props.showRomaji && props.line.romanLyric) all += '\n' + props.line.romanLyric;
-				if (props.showTranslation && props.line.translatedLyric) all += '\n' + props.line.translatedLyric;
+				if (showRomaji && props.line.romanLyric) all += '\n' + props.line.romanLyric;
+				if (showTranslation && props.line.translatedLyric) all += '\n' + props.line.translatedLyric;
 				const items: any[] = [
 					{
 						label: '复制该句歌词',
@@ -297,28 +310,28 @@ const LineContent = React.memo((props: LineProps & { lineRef: React.RefObject<HT
 				...props.transforms?.outOfRangeHidden && { visibility: 'hidden' },
 				willChange: 'transform, opacity, filter'
 			}}>
-			{props.line.dynamicLyric && props.useKaraokeLyrics && !props.outOfRangeKaraoke && <div className="rnp-lyrics-line-karaoke" ref={karaokeLineRef}>
+			{props.line.dynamicLyric && useKaraokeLyrics && !props.outOfRangeKaraoke && <div className="rnp-lyrics-line-karaoke" ref={karaokeLineRef}>
 				{props.line.dynamicLyric.map((word, index) => {
 					return <div
-						key={`${props.karaokeAnimation} ${index}`}
+						key={`${karaokeAnimation} ${index}`}
 						// @ts-ignore
 						ref={karaokeLineRef.current?.children[index]}
 						className={`rnp-karaoke-word ${word?.isCJK ? 'is-cjk' : ''} ${word?.endsWithSpace ? 'end-with-space' : ''}`}
 						style={getKaraokeAnimation(word)}>
 						<span>{word.word}</span>
 						{
-							props.karaokeAnimation == 'slide' && <span className="rnp-karaoke-word-filler" style={getKaraokeAnimation(word)}>{word.word}</span>
+							karaokeAnimation == 'slide' && <span className="rnp-karaoke-word-filler" style={getKaraokeAnimation(word)}>{word.word}</span>
 						}
 					</div>
 				})}
 			</div>}
-			{!(props.line.dynamicLyric && props.useKaraokeLyrics && !props.outOfRangeKaraoke) && props.line.originalLyric && <div className="rnp-lyrics-line-original">
+			{!(props.line.dynamicLyric && useKaraokeLyrics && !props.outOfRangeKaraoke) && props.line.originalLyric && <div className="rnp-lyrics-line-original">
 				{props.line.originalLyric}
 			</div>}
-			{props.line.romanLyric && props.showRomaji && <div className="rnp-lyrics-line-romaji">
+			{props.line.romanLyric && showRomaji && <div className="rnp-lyrics-line-romaji">
 				{props.line.romanLyric}
 			</div>}
-			{props.line.translatedLyric && props.showTranslation && <div className="rnp-lyrics-line-translated">
+			{props.line.translatedLyric && showTranslation && <div className="rnp-lyrics-line-translated">
 				{props.line.translatedLyric}
 			</div>}
 			{/* @ts-ignore */}
@@ -327,8 +340,6 @@ const LineContent = React.memo((props: LineProps & { lineRef: React.RefObject<HT
 				line={props.line}
 				currentLine={props.currentLine}
 				currentTime={props.currentTime}
-				seekCounter={props.seekCounter}
-				playState={props.playState}
 			/>}
 		</div>
 	)
@@ -345,17 +356,11 @@ const LineContent = React.memo((props: LineProps & { lineRef: React.RefObject<HT
     const isInterlude = next.line.isInterlude;
     if ((isActive || isInterlude) && prev.currentTime !== next.currentTime) return false;
 
-    // Shallow compare other props
-    if (prev.seekCounter !== next.seekCounter) return false;
-    if (prev.playState !== next.playState) return false;
-    if (prev.showTranslation !== next.showTranslation) return false;
-    if (prev.showRomaji !== next.showRomaji) return false;
-    if (prev.useKaraokeLyrics !== next.useKaraokeLyrics) return false;
-    if (prev.karaokeAnimation !== next.karaokeAnimation) return false;
-    if (prev.lyricGlow !== next.lyricGlow) return false;
     if (prev.outOfRangeScrolling !== next.outOfRangeScrolling) return false;
-    if (prev.outOfRangeKaraoke !== next.outOfRangeKaraoke) return false;
-    if (prev.jumpToTime !== next.jumpToTime) return false;
+    // if (prev.outOfRangeKaraoke !== next.outOfRangeKaraoke) return false; // This is derived in LineContent now? No, it's passed as prop?
+    // Wait, outOfRangeKaraoke was passed as prop in my previous Lyrics.tsx
+    // But I removed it from LineProps in types.ts?
+    // Let me check types.ts again.
     
     // Deep compare transforms (performance critical)
     const t1 = prev.transforms;
@@ -376,6 +381,7 @@ const LineContent = React.memo((props: LineProps & { lineRef: React.RefObject<HT
 });
 
 export function Line(props: LineProps) {
+    const { reportHeight } = useLyricsContext();
 	const lineRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
@@ -383,13 +389,13 @@ export function Line(props: LineProps) {
 		const observer = new ResizeObserver(entries => {
 			for (let entry of entries) {
 				if (entry.contentRect.height > 0) {
-					props.reportHeight(props.id, entry.contentRect.height);
+					reportHeight(props.id, entry.contentRect.height);
 				}
 			}
 		});
 		observer.observe(lineRef.current);
 		return () => observer.disconnect();
-	}, [props.reportHeight, props.id]);
+	}, [reportHeight, props.id]);
 
 	if (props.outOfRangeScrolling) {
 		const offset = props.id - props.currentLine;
@@ -402,5 +408,13 @@ export function Line(props: LineProps) {
 			/>
 		)
 	}
-	return <LineContent {...props} lineRef={lineRef} />;
+    
+    // Calculate outOfRangeKaraoke here or pass it?
+    // Previously it was passed. Now I removed it from LineProps?
+    // I should check if I removed it from LineProps in types.ts.
+    // In types.ts I kept outOfRangeScrolling but commented out outOfRangeKaraoke.
+    // So I need to calculate it here.
+    const outOfRangeKaraoke = Math.abs(props.id - props.currentLine) > 10;
+
+	return <LineContent {...props} outOfRangeKaraoke={outOfRangeKaraoke} lineRef={lineRef} />;
 }
