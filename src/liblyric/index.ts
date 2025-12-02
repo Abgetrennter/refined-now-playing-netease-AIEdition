@@ -55,6 +55,11 @@ export const PURE_MUSIC_LYRIC_DATA = {
 
 
 const simularityCache: Record<string, number> = {};
+export function cleanLyricCache() {
+	for (const key in simularityCache) {
+		delete simularityCache[key];
+	}
+}
 function calcSimularity(a: string, b: string) {
 	if (typeof(a) === "undefined") a = "";
 	if (typeof(b) === "undefined") b = "";

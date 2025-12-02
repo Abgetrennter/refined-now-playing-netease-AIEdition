@@ -22,7 +22,7 @@
         "resolveJsonModule": true,
         "strictNullChecks": true,
         "noImplicitAny": true,
-        "allowJs": true,
+        "allowJs": false,
         "esModuleInterop": true,
         "skipLibCheck": true,
         "outDir": "./dist"

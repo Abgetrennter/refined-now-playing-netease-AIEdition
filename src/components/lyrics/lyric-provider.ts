@@ -1,7 +1,7 @@
 // Trigger lyrics-updated event when lyrics are updated
 // Also provide a global variable `currentLyrics` for other scripts to use
 
-import { parseLyric, LyricLine } from '../../liblyric/index'
+import { parseLyric, LyricLine, cleanLyricCache } from '../../liblyric/index'
 import { cyrb53 } from '../../utils/common'
 
 declare const betterncm: any;
@@ -69,6 +69,7 @@ window.onProcessLyrics = (_rawLyrics: any, songID: any) => {
 	}
 
 	if ((rawLyrics?.lrc?.lyric ?? '') != currentRawLRC) {
+		cleanLyricCache();
 		console.log('Update Raw Lyrics', rawLyrics);
 		currentRawLRC = (rawLyrics?.lrc?.lyric ?? '');
 		const preprocessedLyrics = preProcessLyrics(rawLyrics);

@@ -61,7 +61,7 @@ function Interlude(props: InterludeProps) {
 	)
 }
 
-function LineContent(props: LineProps & { lineRef: React.RefObject<HTMLDivElement | null> }) {
+const LineContent = React.memo((props: LineProps & { lineRef: React.RefObject<HTMLDivElement | null> }) => {
 	if (props.line.originalLyric == '') {
 		// @ts-ignore
 		props.line.isInterlude = true;
@@ -333,7 +333,47 @@ function LineContent(props: LineProps & { lineRef: React.RefObject<HTMLDivElemen
 		</div>
 	)
 
-}
+}, (prev, next) => {
+    // Always re-render if structural props change
+    if (prev.id !== next.id) return false;
+    if (prev.line !== next.line) return false;
+    if (prev.currentLine !== next.currentLine) return false;
+    
+    // Only check currentTime if active or interlude
+    const isActive = next.currentLine === next.id;
+    // @ts-ignore
+    const isInterlude = next.line.isInterlude;
+    if ((isActive || isInterlude) && prev.currentTime !== next.currentTime) return false;
+
+    // Shallow compare other props
+    if (prev.seekCounter !== next.seekCounter) return false;
+    if (prev.playState !== next.playState) return false;
+    if (prev.showTranslation !== next.showTranslation) return false;
+    if (prev.showRomaji !== next.showRomaji) return false;
+    if (prev.useKaraokeLyrics !== next.useKaraokeLyrics) return false;
+    if (prev.karaokeAnimation !== next.karaokeAnimation) return false;
+    if (prev.lyricGlow !== next.lyricGlow) return false;
+    if (prev.outOfRangeScrolling !== next.outOfRangeScrolling) return false;
+    if (prev.outOfRangeKaraoke !== next.outOfRangeKaraoke) return false;
+    if (prev.jumpToTime !== next.jumpToTime) return false;
+    
+    // Deep compare transforms (performance critical)
+    const t1 = prev.transforms;
+    const t2 = next.transforms;
+    if (
+        t1.top !== t2.top ||
+        t1.scale !== t2.scale ||
+        t1.blur !== t2.blur ||
+        t1.opacity !== t2.opacity ||
+        t1.delay !== t2.delay ||
+        t1.left !== t2.left ||
+        t1.rotate !== t2.rotate ||
+        t1.extraTop !== t2.extraTop ||
+        t1.outOfRangeHidden !== t2.outOfRangeHidden
+    ) return false;
+
+    return true;
+});
 
 export function Line(props: LineProps) {
 	const lineRef = useRef<HTMLDivElement>(null);

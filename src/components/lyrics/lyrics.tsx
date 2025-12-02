@@ -151,6 +151,8 @@ export function Lyrics(props: LyricsProps) {
 		selection.addRange(range);
 	}, [overviewContainerRef]);
 
+	const jumpToTimeNoOp = useCallback(() => { }, []);
+
 	const isPureMusic = lyrics && (
 		lyrics.length === 1 ||
 		lyrics.length <= 10 && lyrics.some((x) => (x.originalLyric ?? '').includes('纯音乐'))
@@ -167,6 +169,8 @@ export function Lyrics(props: LyricsProps) {
 					fontSize: `${fontSize}px`,
 				}}>
 				{lyrics && lyrics.map((line, index) => {
+                    const centerLine = scrollingMode ? scrollingFocusLine : currentLine;
+                    const isFarAway = Math.abs(index - centerLine) > 25;
 					return <Line
 						key={`${index}`} // Removed songId to avoid prop drilling, index should be stable enough for now or add id to line
 						id={index}
@@ -178,10 +182,10 @@ export function Lyrics(props: LyricsProps) {
 						showTranslation={showTranslation}
 						showRomaji={showRomaji}
 						useKaraokeLyrics={useKaraokeLyrics}
-						jumpToTime={isPureMusic ? () => { } : jumpToTime}
+						jumpToTime={isPureMusic ? jumpToTimeNoOp : jumpToTime}
 						transforms={lineTransforms[index] ?? { top: 0, scale: 1, delay: 0, blur: 0 }}
 						karaokeAnimation={karaokeAnimation}
-						outOfRangeScrolling={scrollingMode && length > 100 && Math.abs(index - scrollingFocusLine) > 20}
+						outOfRangeScrolling={length > 50 && isFarAway}
 						outOfRangeKaraoke={/*length > 100 && */Math.abs(index - currentLine) > 10}
 						lyricGlow={lyricGlow}
 						reportHeight={reportHeight}
