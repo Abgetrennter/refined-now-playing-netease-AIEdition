@@ -22,6 +22,7 @@ import { createRoot } from 'react-dom/client';
 
 console.log('Refined Now Playing: Initializing...');
 
+// 全局错误处理
 // Global Error Handler
 window.addEventListener('error', (event) => {
     console.error('Refined Now Playing: Uncaught Error:', event.error || event.message);
@@ -31,6 +32,13 @@ window.addEventListener('unhandledrejection', (event) => {
     console.error('Refined Now Playing: Unhandled Promise Rejection:', event.reason);
 });
 
+/**
+ * 更新主题色变量
+ * Update accent color variables
+ * @param {string} name - 变量名 / Variable name
+ * @param {number} argb - ARGB 颜色值 / ARGB color value
+ * @param {boolean} isFM - 是否为私人FM模式 / Is FM mode
+ */
 const updateAccentColor = (name, argb, isFM = false) => {
 	const [r, g, b] = [...argb2Rgb(argb)];
 	if (isFM) {
@@ -42,6 +50,11 @@ const updateAccentColor = (name, argb, isFM = false) => {
 	document.body.style.setProperty(`--${name}-rgb`, `${r}, ${g}, ${b}`);
 }
 
+/**
+ * 使用灰色作为备用主题色
+ * Use grey as fallback accent color
+ * @param {boolean} isFM - 是否为私人FM模式 / Is FM mode
+ */
 const useGreyAccentColor = (isFM = false) => {
 	updateAccentColor('rnp-accent-color-dark', rgb2Argb(150, 150, 150), isFM);
 	updateAccentColor('rnp-accent-color-on-primary-dark', rgb2Argb(10, 10, 10), isFM);
@@ -58,6 +71,12 @@ const useGreyAccentColor = (isFM = false) => {
 }
 
 let lastDom = null, lastIsFM = false;
+/**
+ * 计算并应用主题色
+ * Calculate and apply accent color from image
+ * @param {HTMLElement} dom - 图片DOM元素 / Image DOM element
+ * @param {boolean} isFM - 是否为私人FM模式 / Is FM mode
+ */
 const calcAccentColor = (dom, isFM = false) => {
 	lastDom = dom.cloneNode(true);
 	lastIsFM = isFM;
@@ -108,6 +127,10 @@ const recalcAccentColor = () => {
 }
 
 var lastCDImage = '';
+/**
+ * 监控CD图片变化并更新主题色
+ * Monitor CD image changes and update accent color
+ */
 const updateCDImage = () => {
 	if (!document.querySelector('.g-single')) {
 		return;
@@ -143,6 +166,12 @@ var lastTitle = "";
 const titleSizeController = document.createElement('style');
 titleSizeController.innerHTML = '';
 document.head.appendChild(titleSizeController);
+
+/**
+ * 重新计算标题字体大小以适应容器
+ * Recalculate title font size to fit container
+ * @param {boolean} forceRefresh - 是否强制刷新 / Force refresh
+ */
 const recalculateTitleSize = (forceRefresh = false) => {
 	const title = document.querySelector('.g-single .g-singlec-ct .n-single .mn .head .inf .title');
 	if (!title) {
@@ -206,6 +235,10 @@ window.addEventListener('resize', () => {
 	recalculateTitleSize(true);
 });
 
+/**
+ * 移动歌曲标签到标题旁边
+ * Move song tags next to the title
+ */
 const moveTags = () => {
 	const titleBase = document.querySelector(".g-single-track .g-singlec-ct .n-single .mn .head .inf .title");
 	if (!titleBase) {
@@ -270,6 +303,11 @@ const addOrRemoveGlobalClassByOption = (className, optionValue) => {
 }
 
 const shouldSettingMenuReload = [true, true]; // index = int(isFM)
+/**
+ * 添加设置菜单
+ * Add settings menu
+ * @param {boolean} isFM - 是否为私人FM模式 / Is FM mode
+ */
 const addSettingsMenu = async (isFM = false) => {
 	if (shouldSettingMenuReload[isFM ? 1 : 0]) {
 		shouldSettingMenuReload[isFM ? 1 : 0] = false;
@@ -303,6 +341,14 @@ const addSettingsMenu = async (isFM = false) => {
 		}
 		slider.dispatchEvent(new Event("input"));
 	}
+	/**
+	 * 绑定复选框到类名
+	 * Bind checkbox to CSS class
+	 * @param {HTMLInputElement} checkbox - 复选框元素
+	 * @param {string} className - 类名
+	 * @param {boolean} defaultValue - 默认值
+	 * @param {function} callback - 回调函数
+	 */
 	const bindCheckboxToClass = (checkbox, className, defaultValue = false, callback = () => {}) => {
 		checkbox.checked = getSetting(checkbox.id, defaultValue);
 		checkbox.addEventListener("change", e => {
@@ -314,6 +360,13 @@ const addSettingsMenu = async (isFM = false) => {
 		addOrRemoveGlobalClassByOption(className, checkbox.checked);
 		callback(checkbox.checked);
 	}
+	/**
+	 * 绑定复选框到函数
+	 * Bind checkbox to function
+	 * @param {HTMLInputElement} checkbox - 复选框元素
+	 * @param {function} func - 回调函数
+	 * @param {boolean} defaultValue - 默认值
+	 */
 	const bindCheckboxToFunction = (checkbox, func, defaultValue = false) => {
 		checkbox.checked = getSetting(checkbox.id, defaultValue);
 		checkbox.addEventListener("change", e => {
@@ -323,6 +376,16 @@ const addSettingsMenu = async (isFM = false) => {
 		});
 		func(checkbox.checked);
 	}
+	/**
+	 * 绑定滑块到CSS变量
+	 * Bind slider to CSS variable
+	 * @param {HTMLInputElement} slider - 滑块元素
+	 * @param {string} variable - CSS变量名
+	 * @param {number} defaultValue - 默认值
+	 * @param {string} event - 触发事件 ('input' or 'change')
+	 * @param {function} mapping - 值映射函数
+	 * @param {string} addClassWhenAdjusting - 调整时添加的类名
+	 */
 	const bindSliderToCSSVariable = (slider, variable, defaultValue = 0, event = 'input', mapping = (x) => { return x }, addClassWhenAdjusting = '') => {
 		slider.value = getSetting(slider.id, defaultValue);
 		slider.dispatchEvent(new Event("input"));
@@ -345,6 +408,16 @@ const addSettingsMenu = async (isFM = false) => {
 		document.body.style.setProperty(variable, mapping(slider.value));
 		sliderEnhance(slider);
 	}
+	/**
+	 * 绑定滑块到函数
+	 * Bind slider to function
+	 * @param {HTMLInputElement} slider - 滑块元素
+	 * @param {function} func - 回调函数
+	 * @param {number} defaultValue - 默认值
+	 * @param {string} event - 触发事件
+	 * @param {function} mapping - 值映射函数
+	 * @param {string} addClassWhenAdjusting - 调整时添加的类名
+	 */
 	const bindSliderToFunction = (slider, func, defaultValue = 0, event = 'input', mapping = (x) => { return x }, addClassWhenAdjusting = '') => {
 		slider.value = getSetting(slider.id, defaultValue);
 		slider.dispatchEvent(new Event("input"));
@@ -367,6 +440,14 @@ const addSettingsMenu = async (isFM = false) => {
 		func(mapping(slider.value));
 		sliderEnhance(slider);
 	}
+	/**
+	 * 绑定选择组到CSS类名
+	 * Bind select group to CSS classes
+	 * @param {HTMLElement} selectGroup - 选择组容器
+	 * @param {string} defaultValue - 默认值
+	 * @param {function} mapping - 值到类名的映射函数
+	 * @param {function} callback - 回调函数
+	 */
 	const bindSelectGroupToClasses = (selectGroup, defaultValue, mapping = (x) => { return x }, callback = (x) => {}) => {
 		const buttons = selectGroup.querySelectorAll(".rnp-select-group-btn");
 		buttons.forEach(button => {
@@ -403,6 +484,7 @@ const addSettingsMenu = async (isFM = false) => {
 
 	const initSettings = () => {
 		// 外观
+		// Appearance
 		const exclusiveModes = getOptionDom('#exclusive-modes');
 		const centerLyric = getOptionDom('#center-lyric');
 		const autoHideMiniSongInfo = getOptionDom('#auto-hide-mini-song-info');
@@ -446,6 +528,7 @@ const addSettingsMenu = async (isFM = false) => {
 
 
 		// 封面
+		// Cover
 		const horizontalAlign = getOptionDom('#horizontal-align');
 		const verticalAlign = getOptionDom('#vertical-align');
 		const rectangleCover = getOptionDom('#rectangle-cover');
@@ -469,6 +552,7 @@ const addSettingsMenu = async (isFM = false) => {
 		});
 
 		// 背景
+		// Background
 		const backgroundType = getOptionDom('#background-type');
 		const bgBlur = getOptionDom('#bg-blur');
 		const bgDim = getOptionDom('#bg-dim');
@@ -495,6 +579,7 @@ const addSettingsMenu = async (isFM = false) => {
 		});
 
 		// 歌词
+		// Lyrics
 		const originalLyricBold = getOptionDom('#original-lyric-bold');
 		const lyricFontSize = getOptionDom('#lyric-font-size');
 		const lyricRomajiSizeEm = getOptionDom('#lyric-romaji-size-em');
@@ -590,6 +675,7 @@ const addSettingsMenu = async (isFM = false) => {
 		});
 
 		// 字体
+		// Font
 		const customFont = getOptionDom('#custom-font');
 		bindCheckboxToClass(customFont, 'rnp-custom-font', false);
 		const customFontSectionContainer = getOptionDom('#rnp-custom-font-section');
@@ -597,6 +683,7 @@ const addSettingsMenu = async (isFM = false) => {
 		containerRoot.render(<FontSettings />);
 
 		// 实验性选项
+		// Experimental
 		const fluidMaxFramerate = getOptionDom('#fluid-max-framerate');
 		const fluidBlur = getOptionDom('#fluid-blur');
 		const hideEntireBottombar = getOptionDom('#hide-entire-bottombar-when-idle');
@@ -616,6 +703,7 @@ const addSettingsMenu = async (isFM = false) => {
 		});
 
 		// 杂项
+		// Misc
 		const hideSongAliasName = getOptionDom('#hide-song-alias-name');
 		const hideComments = getOptionDom('#hide-comments');
 		const partialBg = getOptionDom('#partial-bg');
@@ -624,6 +712,7 @@ const addSettingsMenu = async (isFM = false) => {
 		bindCheckboxToClass(partialBg, 'partial-bg', false);
 
 		// 关于
+		// About
 		const versionNumber = getOptionDom('#rnp-version-number');
 		versionNumber.innerHTML = loadedPlugins.RefinedNowPlaying.manifest.version;
 		const openWhatsNew = getOptionDom('#open-whats-new');
@@ -631,6 +720,11 @@ const addSettingsMenu = async (isFM = false) => {
 			whatsNew(true);
 		});
 	}
+	/**
+	 * 初始化设置菜单的标签页切换
+	 * Initialize tabs switching for settings menu
+	 * @param {HTMLElement} menu - 菜单DOM元素
+	 */
 	const initTabs = (menu) => {
 		const tabs = menu.querySelectorAll('.rnp-settings-menu-tabs .rnp-settings-menu-tab');
 		const container = menu.querySelector('.rnp-settings-menu-inner');
@@ -698,6 +792,11 @@ const addSettingsMenu = async (isFM = false) => {
 	);*/
 };
 
+/**
+ * 切换全屏模式
+ * Toggle full screen mode
+ * @param {boolean|null} force - 强制开启(true)或关闭(false)，null为切换 / Force enable(true) or disable(false), null to toggle
+ */
 const toggleFullScreen = (force = null) => {
 	if (!document.fullscreenElement) {
 		if (force === false) return;
@@ -721,6 +820,10 @@ const toggleFullScreen = (force = null) => {
 	}
 }
 
+/**
+ * 添加全屏按钮和时钟
+ * Add full screen button and clock
+ */
 const addFullScreenButton = () => {
 	const fullScreenButton = document.createElement('div');
 	fullScreenButton.classList.add('rnp-full-screen-button');
@@ -751,6 +854,7 @@ new MutationObserver(() => {
 	}
 }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
 
+// 拦截 HTMLImageElement 的 src 属性
 // intercept src setter of HTMLImageElement
 const _src = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src');
 Object.defineProperty(HTMLImageElement.prototype, 'src', {
@@ -940,6 +1044,7 @@ plugin.onLoad(async (p) => {
 	}).observe(document.body, { childList: true , subtree: true, attributes: true, characterData: true, attributeFilter: ['src']});
 
 	// Add progressbar hover preview
+	// 添加进度条悬停预览
 	waitForElement('#main-player .prg', (dom) => {
 		const progressbarPreview = document.createElement('div');
 		progressbarPreview.classList.add('rnp-progressbar-preview');
@@ -955,6 +1060,7 @@ plugin.onLoad(async (p) => {
 	});
 
 	// Fix incomptibility with light theme
+	// 修复与浅色主题的不兼容问题
 	const lightThemeFixStyle = document.createElement('link');
 	lightThemeFixStyle.rel = 'stylesheet';
 	document.head.appendChild(lightThemeFixStyle);
@@ -989,6 +1095,7 @@ plugin.onLoad(async (p) => {
 
 	
 	// 私人 FM
+	// Personal FM
 	const patchFM = async () => {
 		if (document.querySelector('#page_pc_userfm_songplay:not(.patched)')) {
 			document.querySelector('#page_pc_userfm_songplay').classList.add('patched');
@@ -1040,6 +1147,7 @@ plugin.onLoad(async (p) => {
 	});
 
 	// Listen system theme change
+	// 监听系统主题变化
 	const toggleSystemDarkmodeClass = (media) => {
 		document.body.classList.add(media.matches ? 'rnp-system-dark' : 'rnp-system-light');
 		document.body.classList.remove(media.matches ? 'rnp-system-light' : 'rnp-system-dark');
@@ -1052,6 +1160,7 @@ plugin.onLoad(async (p) => {
 	toggleSystemDarkmodeClass(systemDarkmodeMedia);
 
 	// Idle detection
+	// 空闲检测
 	const IdleThreshold = 1.5 * 1000;
 	let idleTimer = null;
 	let idle = false;
@@ -1089,6 +1198,7 @@ plugin.onLoad(async (p) => {
 	});
 
 	// Listen for now playing open
+	// 监听正在播放界面打开
 	new MutationObserver((mutations) => {
 		mutations.forEach((mutation) => {
 			if (mutation.addedNodes.length > 0) {

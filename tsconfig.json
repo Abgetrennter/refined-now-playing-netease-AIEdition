@@ -1,11 +1,10 @@
 {
     "include": [
-        "./src/**/*.ts",
-        "./src/**/*.tsx",
-        "./*.css"
+        "./src/**/*"
     ],
     "exclude": [
-        "./node_modules/@types/node/**/*.ts"
+        "./node_modules/@types/node/**/*.ts",
+        "./node_modules"
     ],
     "compilerOptions": {
         "target": "ESNext",
@@ -22,6 +21,10 @@
         "moduleResolution": "node",
         "resolveJsonModule": true,
         "strictNullChecks": true,
-        "allowJs": false
+        "noImplicitAny": true,
+        "allowJs": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "outDir": "./dist"
     }
 }
