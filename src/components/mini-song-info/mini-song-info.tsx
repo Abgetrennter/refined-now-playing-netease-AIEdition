@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './mini-song-info.scss';
+import { observe } from '../../utils/shared-observer';
 
 interface MiniSongInfoProps {
     image: HTMLImageElement;
@@ -14,13 +15,12 @@ export function MiniSongInfo(props: MiniSongInfoProps) {
 	const image = props.image;
 
 	useEffect(() => {
-		const observer = new MutationObserver(() => {
+		const disconnect = observe(image, { attributes: true, attributeFilter: ['src'] }, () => {
 			if (image.src === album) return;
 			if (image.complete) {
 				setAlbum(image.src);
 			}
 		});
-		observer.observe(image, { attributes: true, attributeFilter: ['src'] });
 		const onload = () => {
 			setAlbum(image.src);
 		};
@@ -32,7 +32,7 @@ export function MiniSongInfo(props: MiniSongInfoProps) {
         }
 
 		return () => {
-			observer.disconnect();
+			disconnect();
 			image.removeEventListener('load', onload);
 		}
 	}, [image, album]);
@@ -49,12 +49,11 @@ export function MiniSongInfo(props: MiniSongInfoProps) {
 			setArtist(artist);
 		};
 		onObverse();
-		const observer = new MutationObserver(() => {
+		const disconnect = observe(infContainer, { childList: true, subtree: true }, () => {
 			onObverse();
 		});
-		observer.observe(infContainer, { childList: true, subtree: true });
 		return () => {
-			observer.disconnect();
+			disconnect();
 		}
 	} , [infContainer]);
 

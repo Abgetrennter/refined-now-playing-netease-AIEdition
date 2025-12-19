@@ -1,5 +1,6 @@
 import { getSetting } from '../../modules/settings/storage';
 import React, { useState, useEffect } from 'react';
+import { observe } from '../../utils/shared-observer';
 
 const getCoverType = () => {
 	const type = getSetting('cover-blurry-shadow', 'true');
@@ -22,31 +23,29 @@ export function CoverShadow(props: CoverShadowProps) {
 	const image = props.image;
 
 	useEffect(() => {
-		const observer = new MutationObserver(() => {
+		const disconnect = observe(image, { attributes: true, attributeFilter: ['src'] }, () => {
 			if (image.src === url) return;
 			if (image.complete) {
 				setUrl(image.src);
 			}
 		});
-		observer.observe(image, { attributes: true, attributeFilter: ['src'] });
 		const onload = () => {
 			setUrl(image.src);
 		};
 		image.addEventListener('load', onload);
 		return () => {
-			observer.disconnect();
+			disconnect();
 			image.removeEventListener('load', onload);
 		}
 	}, [image]);
 
 	useEffect(() => {
-		const observer = new MutationObserver(() => {
+		const disconnect = observe(document.body, { attributes: true, attributeFilter: ['class'] }, () => {
 			setRectangleCover(document.body.classList.contains('rectangle-cover'));
 		});
-		observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
 		setRectangleCover(document.body.classList.contains('rectangle-cover'));
 		return () => {
-			observer.disconnect();
+			disconnect();
 		}
 	}, []);
 

@@ -4,6 +4,7 @@ import { getGradientFromPalette } from '../../utils/color-utils';
 import ColorThief from 'colorthief';
 import React, { useState, useEffect, useRef } from 'react';
 import { createShader, createProgram, createTexture, vertexShaderSource, fragmentShaderSource } from '../../utils/webgl-utils';
+import { observe } from '../../utils/shared-observer';
 
 declare const legacyNativeCmder: any;
 declare const registerAudioLevelCallback: any;
@@ -27,19 +28,18 @@ export function Background(props: BackgroundProps) {
 
 	if (!props.isFM) {
 		useEffect(() => {
-			const observer = new MutationObserver(() => {
+			const disconnect = observe(image, { attributes: true, attributeFilter: ['src'] }, () => {
 				if ((image as HTMLImageElement).src === url) return;
 				if ((image as HTMLImageElement).complete) {
 					setUrl((image as HTMLImageElement).src);
 				}
 			});
-			observer.observe(image, { attributes: true, attributeFilter: ['src'] });
 			const onload = () => {
 				setUrl((image as HTMLImageElement).src);
 			};
 			image.addEventListener('load', onload);
 			return () => {
-				observer.disconnect();
+				disconnect();
 				image.removeEventListener('load', onload);
 			}
 		}, [image]);
@@ -51,16 +51,15 @@ export function Background(props: BackgroundProps) {
 				setUrl(img.src);
 				props.imageChangedCallback?.(img);
 			}
-			const observer = new MutationObserver(() => {
+			const disconnect = observe(imageContainer, { childList: true, subtree: true }, () => {
 				const img = imageContainer.querySelector('.cvr.j-curr img') as HTMLImageElement;
 				if (img) {
 					setUrl(img.src);
 					props.imageChangedCallback?.(img);
 				}
 			});
-			observer.observe(imageContainer, { childList: true, subtree: true });
 			return () => {
-				observer.disconnect();
+				disconnect();
 			}
 		}, [image]);
 	}
